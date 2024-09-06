@@ -22,7 +22,10 @@ typedef enum State {
   ESCAPE_SEQ_IN_DOUBLE_QUOTE,
 } State;
 
-// 상태 전이 함수의 선언
+/* Declare transition and executeAction functions
+to write functions from top level to down */
+
+// Declare transition functions
 State transitionState(State currentState, char input);
 State transitionFromNormalState(char input);
 State transitionFromSlashReceiveInitially(char input);
@@ -34,8 +37,7 @@ State transitionFromInsideDoubleQuote(char input);
 State transitionFromEscapeSeqInSingleQuote(char input);
 State transitionFromEscapeSeqInDoubleQuote(char input);
 
-// 액션 함수의 선언
-void printToStdout(char input);
+// Declare executeAction functions
 void executeAction(State currentState, char input);
 void executeActionFromNormalState(char input);
 void executeActionFromSlashReceiveInitially(char input);
@@ -47,17 +49,18 @@ void executeActionFromInsideDoubleQuote(char input);
 void executeActionFromEscapeSeqInSingleQuote(char input);
 void executeActionFromEscapeSeqInDoubleQuote(char input);
 
-// 상태 전이와 액션을 처리하는 메인 함수 뼈대
+/* Handles state transition and action execution for the current state.
+   Calls the transition and action function for the state.
+   Returns the next state based on the input and current state. */
 State handleStateTransition(State currentState, char input) {
-  State nextState;
-
-  nextState = transitionState(currentState, input);
+  State nextState = transitionState(currentState, input);
   executeAction(currentState, input);
 
   return nextState;
 }
 
-// 상태 전이 함수
+/* Determines the next state based on the current state and input.
+   Calls the specific state transition function. */
 State transitionState(State currentState, char input) {
   switch (currentState) {
     case NORMAL_STATE:
@@ -84,7 +87,8 @@ State transitionState(State currentState, char input) {
   }
 }
 
-// 액션 함수
+/* Executes the appropriate action for the current state and input.
+   Calls the specific action execution function for the state. */
 void executeAction(State currentState, char input) {
   switch (currentState) {
     case NORMAL_STATE:
@@ -115,11 +119,21 @@ void executeAction(State currentState, char input) {
       executeActionFromEscapeSeqInDoubleQuote(input);
       break;
     default:
+      assert("currentState should be one of cases above");
       break;
   }
 }
 
-// 전이 및 액션 함수의 뼈대
+/* The following functions (transitionFromXXXState) implement the
+   specific logic for state transitions.
+
+   Each function corresponds to a particular state and determines the
+   next state based on the current input.
+
+   The functions handle different inputs by using if statements within
+   each function.
+
+   Refer to dfa.png for a visual representation of the transitions. */
 State transitionFromNormalState(char input) {
   if (input == '/') return SLASH_RECEIVE_INITIALLY;
   if (input == '\'') return INSIDE_SINGLE_QUOTE;
@@ -170,9 +184,24 @@ State transitionFromEscapeSeqInDoubleQuote(char input) {
   return INSIDE_DOUBLE_QUOTE;
 }
 
-void printToStdout(char input) { fprintf(stdout, "%c", input); }
+/* simply wrapped fprintf to std output stream
+   for abstraction */
+void printToStdout(char input) {
+  fprintf(stdout, "%c", input);
+}
 
-// 액션 함수의 뼈대
+/* The following functions (executeActionFromXXXState) implement the
+   specific logic for executing actions based on the current state.
+
+   Each function corresponds to a particular state and performs actions
+   based on the current input, such as printing characters.
+
+   The functions handle different inputs by using if statements within
+   each function.
+
+   Refer to dfa.png for a visual representation of the state transitions
+   and their corresponding actions.
+*/
 void executeActionFromNormalState(char input) {
   if (input == '/') return;
   printToStdout(input);
@@ -203,9 +232,13 @@ void executeActionFromAsteriskReceivedInitiallyInComment(char input) {
   if (input == '\n') printToStdout('\n');
 }
 
-void executeActionFromInsideSingleQuote(char input) { printToStdout(input); }
+void executeActionFromInsideSingleQuote(char input) {
+  printToStdout(input);
+}
 
-void executeActionFromInsideDoubleQuote(char input) { printToStdout(input); }
+void executeActionFromInsideDoubleQuote(char input) {
+  printToStdout(input);
+}
 
 void executeActionFromEscapeSeqInSingleQuote(char input) {
   printToStdout(input);
@@ -215,51 +248,64 @@ void executeActionFromEscapeSeqInDoubleQuote(char input) {
   printToStdout(input);
 }
 
-void printErrorLog(int line_com) {
-  fprintf(stderr, "Error: line %d: unterminated comment\n", line_com);
+/* simply wrapped fprintf to std error stream
+   for abstraction */
+void printErrorLog(int lineCom) {
+  fprintf(stderr, "Error: line %d: unterminated comment\n", lineCom);
 }
 
+/* The main function reads characters from standard input one by one.
+
+   It calls handleStateTransition to update the state and execute
+   actions.
+
+   Additionally, it manages the tracking of whether a comment is open or
+   not for proper error handling. */
 int main(void) {
-  // This constant represents comment is closed so there's no comment line
-  // number
+  /* This constant for line comment represents that comment is closed */
   const int COMMENT_CLOSED = -1;
-  // ich: int type variable to store character input from getchar()
-  // (abbreviation of int character)
+
+  /* ich: int type variable to store character input from getchar()
+  (abbreviation of int character) */
   int ich;
-  // line_cur & line_com: current line number and comment line number
-  // (abbreviation of current line and comment line)
-  int line_cur, line_com;
-  // ch: character that comes from casting (char) on ich (abbreviation of
-  // character)
+
+  /* lineCur & lineCom: current line number and comment line number
+  (abbreviation of current line and comment line) */
+  int lineCur, lineCom;
+
+  /*  ch: character that comes from casting (char) on ich (abbreviation
+   of character) */
   char ch;
 
-  line_cur = 1;
-  line_com = COMMENT_CLOSED;
+  lineCur = 1;
+  lineCom = COMMENT_CLOSED;
   State state = NORMAL_STATE;
+
   // This while loop reads all characters from standard input one by one
   while (1) {
-    int got_eof = 0;
-
     ich = getchar();
     if (ich == EOF) break;
 
     ch = (char)ich;
     state = handleStateTransition(state, ich);
-    // if state become INSIDE_MULTI_LINE_COMMENT first time, set line_com as
-    // current line #
-    if (state == INSIDE_MULTI_LINE_COMMENT && line_com == COMMENT_CLOSED) {
-      line_com = line_cur;
-    }
-    // if state become NORMAL_STATE initialize line_com as -1
-    if (state == NORMAL_STATE && line_com != COMMENT_CLOSED) {
-      line_com = COMMENT_CLOSED;
+
+    /* if state become INSIDE_MULTI_LINE_COMMENT first time, set lineCom
+    as current line # */
+    if (state == INSIDE_MULTI_LINE_COMMENT &&
+        lineCom == COMMENT_CLOSED) {
+      lineCom = lineCur;
     }
 
-    if (ch == '\n') line_cur++;
-    if (got_eof) break;
+    // if state become NORMAL_STATE initialize lineCom as -1
+    if (state == NORMAL_STATE && lineCom != COMMENT_CLOSED) {
+      lineCom = COMMENT_CLOSED;
+    }
+
+    if (ch == '\n') lineCur++;
   }
-  if (line_com != COMMENT_CLOSED) {
-    printErrorLog(line_com);
+
+  if (lineCom != COMMENT_CLOSED) {
+    printErrorLog(lineCom);
     return (EXIT_FAILURE);
   }
   return (EXIT_SUCCESS);
