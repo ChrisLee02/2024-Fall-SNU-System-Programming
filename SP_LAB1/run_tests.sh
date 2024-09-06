@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the list of test files
-test_files=("test0.c" "test1.c" "test2.c" "test3.c" "test4.c" "test5.c")
+test_files=("test0.c" "test1.c" "test2.c" "test3.c" "test4.c" "test5.c" "test_mine.c")
 
 # Loop through each test file
 for file in "${test_files[@]}"; do

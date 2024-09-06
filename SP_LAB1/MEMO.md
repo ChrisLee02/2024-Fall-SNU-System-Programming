@@ -14,7 +14,41 @@
 - 따옴표 안에 \를 무시하면, \"같은 경우를 어떻게 처리하라는건지 모르겠구만. -> 예외처리 해주는게 의도같음.
 - \ + newline이 등장하지 않는다는게 무슨 뜻인지 감이 아예 안잡힘.
 
-## 엣지케이스
+## 엣지케이스 & 생각할 점
+
 - 이스케이프 문법으로 인한 "를 예외처리해주어야 한다.
+- /가 입력으로 들어왔을 때, 버퍼에 잠시 넣어두고 주석인지 아닌지 확인 후에 write.
 
 # State Transition Diagram
+
+## States
+
+0. normal
+1. inside one-line comment
+2. inside multi-line comment
+3. inside of double-quotes
+4. ASTERISK_RECEIVED_INITIALLY_IN_COMMENT,
+5. inside of single-quote
+6. receive / from normal state
+7. escape sequence in single-quote
+8. escape sequence in double-quotes
+
+## Diagram
+
+![alt text](LAB1_STD.png)
+
+# STD -> Implement
+
+- states: ENUM으로 정의
+- 메인 함수에서는 state = handleStateTransition(state, input)
+- handleStateTransition에서 transitionState(state, input)과 executeAction(state, input)을 실행.
+- transitionState에서 현재 state랑 input을 동시에 조건문으로 다루면 코드가 지저분해지겠죠?
+  - transitionFromXXXState를 정의하자
+  - executeAction도 마찬가지로 executeActionFromXXXState
+- 종료 시점의 state이 multi-line comment 안일 경우에 오류를 내보내준다.
+- 이떄 오류 정보는 Std error stream으로 ![alt text](image.png)
+
+제출 전에 검토 사항
+
+- 주석
+- 한 라인의 글자 수 제한 확인
