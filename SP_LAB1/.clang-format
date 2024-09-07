@@ -1,0 +1,4 @@
+# .clang-format
+BasedOnStyle: Google
+ColumnLimit: 72
+AllowShortFunctionsOnASingleLine: false
