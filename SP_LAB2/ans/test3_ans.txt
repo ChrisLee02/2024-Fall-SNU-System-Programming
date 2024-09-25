@@ -1,0 +1,11 @@
+./test_case/test3
+  subdir1
+    link
+    pipe
+    root
+    socket
+  five
+  four
+  one
+  three
+  two

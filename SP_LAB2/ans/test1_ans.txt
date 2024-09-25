@@ -1,0 +1,27 @@
+./test_case/test1
+  a
+    b
+      c
+        d
+          e
+            f
+      f
+  dir1
+    bothfilenameand.extensionarelong
+  dir2
+    eight
+    nine
+    seven
+    six
+    ten
+  dir3
+    eight
+    nine
+    seven
+    six
+    ten
+  five
+  four
+  one
+  three
+  two

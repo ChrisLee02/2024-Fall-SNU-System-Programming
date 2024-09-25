@@ -6,8 +6,8 @@
 # Author: Bernhard Egger <bernhard@csap.snu.ac.kr>
 #
 
-INPUT=${0%/*}/test1.tree
-MKSOCK=
+INPUT=${0%/*}/test3.tree
+MKSOCK=${0%/*}/mksock
 
 if [[ -n "$1" ]]; then
   INPUT=$1

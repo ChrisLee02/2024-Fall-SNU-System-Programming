@@ -1,0 +1,59 @@
+test1: FAIL
+Differences found for test1. See below:
+1,27d0
+< ./test_case/test1
+<   a
+<     b
+<       c
+<         d
+<           e
+<             f
+<       f
+<   dir1
+<     bothfilenameand.extensionarelong
+<   dir2
+<     eight
+<     nine
+<     seven
+<     six
+<     ten
+<   dir3
+<     eight
+<     nine
+<     seven
+<     six
+<     ten
+<   five
+<   four
+<   one
+<   three
+<   two
+test2: FAIL
+Differences found for test2. See below:
+1,12d0
+< ./test_case/test2
+<   subdir1
+<     target
+<   subdir2
+<     link
+<   five
+<   four
+<   one
+<   seven
+<   six
+<   three
+<   two
+test3: FAIL
+Differences found for test3. See below:
+1,11d0
+< ./test_case/test3
+<   subdir1
+<     link
+<     pipe
+<     root
+<     socket
+<   five
+<   four
+<   one
+<   three
+<   two
