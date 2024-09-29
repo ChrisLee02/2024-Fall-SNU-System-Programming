@@ -1,5 +1,5 @@
 //--------------------------------------------------------------------------------------------------
-// System Programming                         I/O Lab Fall 2023
+// System Programming                         I/O Lab Fall 2024
 //
 /// @file
 /// @brief resursively traverse directory tree and list all entries
@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <grp.h>
 #include <pwd.h>
 #include <stdarg.h>
@@ -61,7 +62,10 @@ struct dirent *getNext(DIR *dir) {
   do {
     errno = 0;
     next = readdir(dir);
-    if (errno != 0) perror(NULL);
+    if (errno != 0) {
+      printf("ERORR");
+      perror(NULL);
+    }
     ignore = next && ((strcmp(next->d_name, ".") == 0) ||
                       (strcmp(next->d_name, "..") == 0));
   } while (next && ignore);
@@ -78,8 +82,10 @@ struct dirent *getNext(DIR *dir) {
 /// @retval 0  if a==b
 /// @retval 1  if a>b
 static int dirent_compare(const void *a, const void *b) {
-  struct dirent *e1 = (struct dirent *)a;
-  struct dirent *e2 = (struct dirent *)b;
+  // In this code, qsort sorts array of pointer(struct dirent **dirents)
+  // so we need to convert a as ** and dereference it.
+  struct dirent *e1 = *(struct dirent **)a;
+  struct dirent *e2 = *(struct dirent **)b;
 
   // if one of the entries is a directory, it comes first
   if (e1->d_type != e2->d_type) {
@@ -91,15 +97,235 @@ static int dirent_compare(const void *a, const void *b) {
   return strcmp(e1->d_name, e2->d_name);
 }
 
+void printHeader(const char *dn, unsigned int flags) {
+  if (flags & F_SUMMARY) {
+    if (flags & F_VERBOSE) {
+      printf("%-54s  %8s:%-8s  %10s  %8s %1s \n", "Name", "User", "Group",
+             "Size", "Blocks", "Type");
+    } else {
+      printf("Name\n");
+    }
+    printf(
+        "----------------------------------------------------------------------"
+        "------------------------------\n");
+  }
+
+  printf("%s\n", dn);
+}
+
+void update_tstats(struct summary *tstats, struct summary *dstats) {
+  tstats->dirs += dstats->dirs;
+  tstats->files += dstats->files;
+  tstats->links += dstats->links;
+  tstats->fifos += dstats->fifos;
+  tstats->socks += dstats->socks;
+
+  tstats->size += dstats->size;
+  tstats->blocks += dstats->blocks;
+}
+
+void update_dstats(struct summary *dstats, struct dirent *entry) {
+  switch (entry->d_type) {
+    case DT_DIR:
+      dstats->dirs++;
+      break;
+    case DT_REG:
+      dstats->files++;
+      break;
+    case DT_LNK:
+      dstats->links++;
+      break;
+    case DT_FIFO:
+      dstats->fifos++;
+      break;
+    case DT_SOCK:
+      dstats->socks++;
+      break;
+    default:
+      break;
+  }
+}
+
+void update_dstats_metadata(struct summary *dstats,
+                            const struct stat *statbuf) {
+  dstats->size += statbuf->st_size;
+  dstats->blocks += statbuf->st_blocks;
+}
+
+void processDir_recursive(const char *dn, const char *pstr,
+                          struct summary *dstats, unsigned int flags) {
+  DIR *dir = opendir(dn);
+  if (dir == NULL) {
+    perror(NULL);
+    if (errno == EACCES) {
+      printf("%sERROR: Permission denied\n", pstr);
+    }
+    return;
+  }
+
+  // count file num
+  struct dirent *entry;
+  int count = 0;
+  while ((entry = getNext(dir)) != NULL) {
+    count++;
+  }
+
+  struct dirent **entries = malloc(count * sizeof(struct dirent *));
+  if (entries == NULL) {
+    perror(NULL);
+    closedir(dir);
+    return;
+  }
+
+  rewinddir(dir);
+  int index = 0;
+  while ((entry = getNext(dir)) != NULL) {
+    entries[index] = entry;
+    index++;
+  }
+
+  qsort(entries, count, sizeof(struct dirent *), dirent_compare);
+
+  for (int i = 0; i < count; i++) {
+    entry = entries[i];
+    char *path;
+    if (asprintf(&path, "%s/%s", dn, entry->d_name) == -1) {
+      perror(NULL);
+      return;
+    }
+
+    char *name_with_pstr;
+    if (asprintf(&name_with_pstr, "%s%s", pstr, entry->d_name) == -1) {
+      perror(NULL);
+      return;
+    }
+
+    // todo: prefix 처리하자
+    char *new_pstr;
+    if (flags & F_TREE) {
+      if (i == count) {
+      } else {
+      }
+    } else {
+      if (asprintf(&new_pstr, "%s  ", pstr) == -1) {
+        perror(NULL);
+        return;
+      }
+    }
+
+    // todo: formatting 작업 필요함.
+    // todo: -t에 대한 |-, '- 처리
+
+    if (strlen(name_with_pstr) > 54) {
+      printf("%.*s...", 51, name_with_pstr);
+    } else {
+      printf("%-54s", name_with_pstr);
+    }
+    if (flags & F_VERBOSE) {
+      struct stat sb;
+      int dd = dirfd(dir);
+      if (fstatat(dd, entry->d_name, &sb, AT_SYMLINK_NOFOLLOW) < 0) {
+        printf("No such file or directory");
+      } else {
+        struct passwd *pw = getpwuid(sb.st_uid);
+        struct group *gr = getgrgid(sb.st_gid);
+
+        char type;
+        if (entry->d_type == DT_DIR)
+          type = 'd';
+        else if (entry->d_type == DT_LNK)
+          type = 'l';
+        else if (entry->d_type == DT_CHR)
+          type = 'c';
+        else if (entry->d_type == DT_BLK)
+          type = 'b';
+        else if (entry->d_type == DT_FIFO)
+          type = 'f';
+        else if (entry->d_type == DT_SOCK)
+          type = 's';
+        else if (entry->d_type == DT_REG)
+          type = ' ';
+        else
+          type = ' ';
+
+        printf("  %8s:%-8s  %10lld  %8lld %1c ", pw ? pw->pw_name : "unknown",
+               gr ? gr->gr_name : "unknown", (long long)sb.st_size,
+               (long long)sb.st_blocks, type);
+        update_dstats_metadata(dstats, &sb);
+      }
+    }
+    printf("\n");
+
+    update_dstats(dstats, entry);
+
+    if (entry->d_type == DT_DIR) {
+      processDir_recursive(path, new_pstr, dstats, flags);
+    }
+    free(path);
+    free(name_with_pstr);
+  }
+
+  free(entries);
+  free(new_pstr);
+  closedir(dir);
+}
+
 /// @brief recursively process directory @a dn and print its tree
 ///
 /// @param dn absolute or relative path string
 /// @param pstr prefix string printed in front of each entry
 /// @param stats pointer to statistics
 /// @param flags output control flags (F_*)
-void processDir(const char *dn, const char *pstr, struct summary *stats,
-                unsigned int flags) {
-  // TODO
+// print header of input folder and handle error
+// if there's no error call recursive process function
+void processDir(const char *dn, const char *pstr, struct summary *tstats,
+                unsigned int flags, int ndir) {
+  printHeader(dn, flags);
+
+  struct summary dstats;
+  memset(&dstats, 0, sizeof(dstats));
+  DIR *dir = opendir(dn);
+  if (dir == NULL) {
+    perror(NULL);
+    if (errno == EACCES) {
+      printf("%sERROR: Permission denied\n", pstr);
+    }
+    return;
+  }
+  closedir(dir);
+  processDir_recursive(dn, pstr, &dstats, flags);
+
+  update_tstats(tstats, &dstats);
+  if (flags & F_SUMMARY) {
+    printf(
+        "----------------------------------------------------------------------"
+        "------------------------------\n");
+    char *result;
+    if (asprintf(&result,
+                 "%d file%s, %d director%s, %d link%s, %d pipe%s, and %d "
+                 "socket%s",
+                 dstats.files, dstats.files == 1 ? "" : "s", dstats.dirs,
+                 dstats.dirs == 1 ? "y" : "ies", dstats.links,
+                 dstats.links == 1 ? "" : "s", dstats.fifos,
+                 dstats.fifos == 1 ? "" : "s", dstats.socks,
+                 dstats.socks == 1 ? "" : "s") == -1) {
+      perror(NULL);
+      return;
+    }
+
+    if (strlen(result) > 68) {
+      printf("%.*s...   ", 65, result);
+    } else {
+      printf("%-68s   ", result);
+    }
+
+    if (flags & F_VERBOSE) {
+      free(result);
+      printf("%14lld %9lld", (long long)dstats.size, (long long)dstats.blocks);
+    }
+
+    printf("\n\n");
+  }
 }
 
 /// @brief print program syntax and an optional error message. Aborts the
@@ -184,7 +410,6 @@ int main(int argc, char *argv[]) {
 
   // if no directory was specified, use the current directory
   if (ndir == 0) directories[ndir++] = CURDIR;
-
   //
   // process each directory
   //
@@ -201,7 +426,9 @@ int main(int argc, char *argv[]) {
   //   - if F_SUMMARY flag set: print summary & update statistics
   memset(&tstat, 0, sizeof(tstat));
   //...
-
+  for (int i = 0; i < ndir; i++) {
+    processDir(directories[i], "", &tstat, flags, ndir);
+  }
   //
   // print grand total
   //
