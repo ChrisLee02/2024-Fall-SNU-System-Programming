@@ -158,7 +158,7 @@ void processDir_recursive(const char *dn, const char *pstr,
   if (dir == NULL) {
     perror(NULL);
     if (errno == EACCES) {
-      printf("%sERROR: Permission denied\n", pstr);
+      printf("%s  ERROR: Permission denied\n", pstr);
     }
     return;
   }
@@ -193,24 +193,47 @@ void processDir_recursive(const char *dn, const char *pstr,
       perror(NULL);
       return;
     }
+    char *double_white_space_prefix = "  ";
+    char *stick_white_space_prefix = "| ";
+    char *stick_dash_prefix = "|-";
+    char *backtick_dash_prefix = "`-";
+    char *prefix_chosen;
 
+    // pstr for printing this row
     char *name_with_pstr;
-    if (asprintf(&name_with_pstr, "%s%s", pstr, entry->d_name) == -1) {
+
+    if (flags & F_TREE) {
+      if (i == count - 1) {
+        prefix_chosen = backtick_dash_prefix;
+      } else {
+        prefix_chosen = stick_dash_prefix;
+      }
+    } else {
+      prefix_chosen = double_white_space_prefix;
+    }
+
+    if (asprintf(&name_with_pstr, "%s%s%s", pstr, prefix_chosen,
+                 entry->d_name) == -1) {
       perror(NULL);
       return;
     }
 
-    // todo: prefix 처리하자
+    // pstr for next step
     char *new_pstr;
+
     if (flags & F_TREE) {
-      if (i == count) {
+      if (i == count - 1) {
+        prefix_chosen = double_white_space_prefix;
       } else {
+        prefix_chosen = stick_white_space_prefix;
       }
     } else {
-      if (asprintf(&new_pstr, "%s  ", pstr) == -1) {
-        perror(NULL);
-        return;
-      }
+      prefix_chosen = double_white_space_prefix;
+    }
+
+    if (asprintf(&new_pstr, "%s%s", pstr, prefix_chosen) == -1) {
+      perror(NULL);
+      return;
     }
 
     // todo: formatting 작업 필요함.
@@ -219,7 +242,10 @@ void processDir_recursive(const char *dn, const char *pstr,
     if (strlen(name_with_pstr) > 54) {
       printf("%.*s...", 51, name_with_pstr);
     } else {
-      printf("%-54s", name_with_pstr);
+      if (flags & F_VERBOSE)
+        printf("%-54s", name_with_pstr);
+      else
+        printf("%s", name_with_pstr);
     }
     if (flags & F_VERBOSE) {
       struct stat sb;
@@ -248,7 +274,7 @@ void processDir_recursive(const char *dn, const char *pstr,
         else
           type = ' ';
 
-        printf("  %8s:%-8s  %10lld  %8lld %1c ", pw ? pw->pw_name : "unknown",
+        printf("  %8s:%-8s  %10lld  %8lld  %1c", pw ? pw->pw_name : "unknown",
                gr ? gr->gr_name : "unknown", (long long)sb.st_size,
                (long long)sb.st_blocks, type);
         update_dstats_metadata(dstats, &sb);
@@ -262,11 +288,11 @@ void processDir_recursive(const char *dn, const char *pstr,
       processDir_recursive(path, new_pstr, dstats, flags);
     }
     free(path);
+    free(new_pstr);
     free(name_with_pstr);
   }
 
   free(entries);
-  free(new_pstr);
   closedir(dir);
 }
 
@@ -288,7 +314,7 @@ void processDir(const char *dn, const char *pstr, struct summary *tstats,
   if (dir == NULL) {
     perror(NULL);
     if (errno == EACCES) {
-      printf("%sERROR: Permission denied\n", pstr);
+      printf("  ERROR: Permission denied\n");
     }
     return;
   }
