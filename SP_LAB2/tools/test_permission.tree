@@ -1,0 +1,15 @@
+#---------------------------------------------------------------------------------------------------
+# System Programming                         I/O Lab                                    Fall 2024
+#
+# test directory tree 3
+#
+f ./test_permission/one 1 0
+f ./test_permission/two 2 0
+f ./test_permission/three 3 0
+f ./test_permission/four 4 0
+f ./test_permission/five 5 0
+l ./test_permission/subdir1/link ./test_permission/five
+l ./test_permission/subdir1/root /root
+l ./test_permission/subdir1/ssl /etc/ssl/private
+p ./test_permission/subdir1/pipe
+s ./test_permission/subdir1/socket

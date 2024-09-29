@@ -1,0 +1,14 @@
+./test_case/test_permission
+  deny
+    ERROR: Permission denied
+  subdir1
+    link
+    pipe
+    root
+    socket
+    ssl
+  five
+  four
+  one
+  three
+  two

@@ -1,13 +1,13 @@
 #---------------------------------------------------------------------------------------------------
-# System Programming                         I/O Lab                                      Fall 2023
+# System Programming                         I/O Lab                                      Fall 2024
 #
 # script to generate directory tree for testing
 #
 # Author: Bernhard Egger <bernhard@csap.snu.ac.kr>
 #
 
-INPUT=${0%/*}/test3.tree
-MKSOCK=${0%/*}/mksock
+INPUT=${0%/*}/demo.tree
+MKSOCK=
 
 if [[ -n "$1" ]]; then
   INPUT=$1

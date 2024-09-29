@@ -29,7 +29,7 @@ The assignment starts by extracting the provided assign2.tar.gz file. It is reco
 As in lab-1-decomment, create a directory named after your student number, zip it up, and submit it. And, be sure to follow the following directory structure:
 
 ```
-2024-00000_assign1
+202400000_assign2
   |-dirtree.c (source file)
   `-readme
 ```
@@ -124,7 +124,7 @@ Analyzed 2 directories:
   total # of directories:                 0
   total # of links:                       2
   total # of pipes:                       0
-  total # of socksets:                    0
+  total # of sockets:                    0
   total file size:                     9206
   total # of blocks:                     16
 ```
@@ -231,7 +231,7 @@ Analyzed 2 directories:
   total # of directories:                 1
   total # of links:                       1
   total # of pipes:                       0
-  total # of socksets:                    0
+  total # of sockets:                    0
 ```
 
 
@@ -267,7 +267,7 @@ The output in detailed mode consists of the following elements (Total line lengt
 | File size      | 10    | right     | ignore |
 | Disk blocks    |  8    | right     | ignore |
 | Type           |  1    |           |        |
-| Summary line   | 68    | left      | limit to 68 characters |
+| Summary line   | 68    | left      | cut and end with three dots |
 | Total size     | 14    | right     | ignore |
 | Total blocks   |  9    | right     | ignore |
 

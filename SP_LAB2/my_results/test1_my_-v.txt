@@ -1,0 +1,28 @@
+./test_case/test1
+  a                                                     chrislee:chrislee        4096         8  d
+    b                                                   chrislee:chrislee        4096         8  d
+      c                                                 chrislee:chrislee        4096         8  d
+        d                                               chrislee:chrislee        4096         8  d
+          e                                             chrislee:chrislee        4096         8  d
+            f                                           chrislee:chrislee           0         0   
+      f                                                 chrislee:chrislee           0         0   
+  dir1                                                  chrislee:chrislee        4096         8  d
+    bothfilenameand.extensionarelong                    chrislee:chrislee         100         8   
+  dir2                                                  chrislee:chrislee        4096         8  d
+    eight                                               chrislee:chrislee           8         8   
+    nine                                                chrislee:chrislee           9         8   
+    seven                                               chrislee:chrislee           7         8   
+    six                                                 chrislee:chrislee           6         8   
+    ten                                                 chrislee:chrislee          10         8   
+    thisisanextremelylongfilenameforsuchasimplistic...  chrislee:chrislee          10         8   
+  dir3                                                  chrislee:chrislee        4096         8  d
+    eight                                               chrislee:chrislee           8         8   
+    nine                                                chrislee:chrislee           9         8   
+    seven                                               chrislee:chrislee           7         8   
+    six                                                 chrislee:chrislee           6         8   
+    ten                                                 chrislee:chrislee          10         8   
+  five                                                  chrislee:chrislee           5         8   
+  four                                                  chrislee:chrislee           4         8   
+  one                                                   chrislee:chrislee           1         8   
+  three                                                 chrislee:chrislee           3         8   
+  two                                                   chrislee:chrislee           2         8   

@@ -1,0 +1,27 @@
+Name
+----------------------------------------------------------------------------------------------------
+./test_case/demo
+  subdir1
+    1
+    1 copy
+      ddd
+      ddd copy
+        ddd
+        ddd copy
+      ddd copy 2
+    1 copy 2
+    1 copy 3
+    1 copy 4
+    sparsefile
+    thisisanextremelylongfilenameforsuchasimplistic...
+  subdir2
+    brokenlink
+    symboliclink
+  subdir3
+    pipe
+    socket
+  one
+  two
+----------------------------------------------------------------------------------------------------
+4 files, 13 directories, 2 links, 1 pipe, and 1 socket                 
+

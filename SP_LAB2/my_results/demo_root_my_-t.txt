@@ -1,0 +1,12 @@
+./test_case/demo_root
+|-subdir1
+| |-sparsefile
+| `-thisisanextremelylongfilenameforsuchasimplistic...
+|-subdir2
+| |-brokenlink
+| `-symboliclink
+|-subdir3
+| |-pipe
+| `-socket
+|-one
+`-two

@@ -1,5 +1,5 @@
 #---------------------------------------------------------------------------------------------------
-# System Programming                         I/O Lab                                      Fall 2023
+# System Programming                         I/O Lab                                      Fall 2024
 #
 # Makefile
 #
@@ -17,9 +17,9 @@ DEP_DIR=.deps
 BIN_DIR=bin
 
 # C compiler and compilation flags
-CC=gcc
-CFLAGS=-Wall -Wno-stringop-truncation -O2 -g
-CFLAGS_HDT=-Wall -Wno-stringop-truncation -O2
+CC=gcc800
+CFLAGS=-Wno-stringop-truncation -O2 -g
+CFLAGS_HDT=-Wno-stringop-truncation -O2
 DEPFLAGS=-MMD -MP -MT $@ -MF $(DEP_DIR)/$*.d
 
 # make sure SOURCES includes ALL source files required to compile the project

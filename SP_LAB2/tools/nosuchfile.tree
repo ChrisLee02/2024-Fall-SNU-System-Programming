@@ -1,0 +1,10 @@
+#---------------------------------------------------------------------------------------------------
+# System Programming                         I/O Lab Fall 2024
+#
+# test directory tree with "No such file" stat errors
+#
+# 파일이 열려 있으나 삭제된 상태
+f ./testdir/file_opened_then_deleted 100 0  # 파일 생성 후 열린 상태에서 삭제됨
+
+# tmpfs 파일 시스템에서 파일 생성 후 마운트 해제된 상태
+f ./mnt/tmpfile 50 0  # tmpfs에서 파일 생성 후 마운트 해제됨

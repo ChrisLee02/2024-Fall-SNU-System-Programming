@@ -8,19 +8,28 @@ ANS_DIR="./ans"
 mkdir -p $ANS_DIR
 
 # 테스트 케이스 폴더들
-TEST_CASES="./test_case/test1 ./test_case/test2 ./test_case/test3"
+TEST_CASES_DIR="./test_case"
 
-# 각 테스트 케이스에 대해 실행
-for TEST in $TEST_CASES; do
-    TEST_NAME=$(basename $TEST)  # test1, test2, test3 등을 얻기 위해 basename 사용
-    OUTPUT_FILE="$ANS_DIR/${TEST_NAME}_ans.txt"
+# 모든 옵션 조합
+OPTIONS_LIST=("" "-t" "-v" "-s" "-t -v" "-t -s" "-v -s" "-t -v -s")
+# OPTIONS_LIST=("" "-t" "-v" "-s")
+
+# 각 옵션 조합에 대해 테스트 케이스 실행
+for OPTIONS in "${OPTIONS_LIST[@]}"; do
+    echo "Running with options: $OPTIONS"
     
-    echo "Running test case: $TEST with reference executable"
-    
-    # 출제자의 실행 파일 실행 후 결과 저장
-    $REFERENCE_EXEC $TEST > $OUTPUT_FILE
-    
-    echo "Saved result to $OUTPUT_FILE"
+    # test_case 디렉토리 아래에 있는 모든 폴더를 순회
+    for TEST_DIR in $(find $TEST_CASES_DIR -mindepth 1 -maxdepth 1 -type d); do
+        TEST_NAME=$(basename $TEST_DIR)  # test1, test2 등 폴더 이름 추출
+        OUTPUT_FILE="$ANS_DIR/${TEST_NAME}_ans_${OPTIONS// /_}.txt"  # 옵션명을 파일명에 포함
+        
+        echo "Running test case: $TEST_DIR with reference executable and options: $OPTIONS"
+        
+        # 출제자의 실행 파일 실행 후 결과 저장 (옵션을 함께 전달)
+        $REFERENCE_EXEC $OPTIONS $TEST_DIR > $OUTPUT_FILE
+        
+        echo "Saved result to $OUTPUT_FILE"
+    done
 done
 
-echo "All reference results have been collected."
+echo "All reference results have been collected for all option combinations."

@@ -1,0 +1,19 @@
+Name
+----------------------------------------------------------------------------------------------------
+./test_case/test_permission
+  deny
+    ERROR: Permission denied
+  subdir1
+    link
+    pipe
+    root
+    socket
+    ssl
+  five
+  four
+  one
+  three
+  two
+----------------------------------------------------------------------------------------------------
+5 files, 2 directories, 3 links, 1 pipe, and 1 socket                  
+

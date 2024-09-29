@@ -1,0 +1,11 @@
+./test_case/test3
+|-subdir1                                               chrislee:chrislee        4096         8  d
+| |-link                                                chrislee:chrislee           7         0  l
+| |-pipe                                                chrislee:chrislee           0         0  f
+| |-root                                                chrislee:chrislee          25         0  l
+| `-socket                                              chrislee:chrislee           0         0  s
+|-five                                                  chrislee:chrislee           5         8   
+|-four                                                  chrislee:chrislee           4         8   
+|-one                                                   chrislee:chrislee           1         8   
+|-three                                                 chrislee:chrislee           3         8   
+`-two                                                   chrislee:chrislee           2         8   
