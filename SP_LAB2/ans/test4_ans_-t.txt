@@ -1,2 +1,0 @@
-./test_case/test4
-`-ddd
