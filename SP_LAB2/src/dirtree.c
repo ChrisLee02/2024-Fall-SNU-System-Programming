@@ -63,8 +63,7 @@ struct dirent *getNext(DIR *dir) {
     errno = 0;
     next = readdir(dir);
     if (errno != 0) {
-      printf("ERORR");
-      perror(NULL);
+      printf("ERROR");
     }
     ignore = next && ((strcmp(next->d_name, ".") == 0) ||
                       (strcmp(next->d_name, "..") == 0));
@@ -156,7 +155,6 @@ void processDir_recursive(const char *dn, const char *pstr,
                           struct summary *dstats, unsigned int flags) {
   DIR *dir = opendir(dn);
   if (dir == NULL) {
-    perror(NULL);
     if (errno == EACCES) {
       printf("%s  ERROR: Permission denied\n", pstr);
     }
@@ -172,7 +170,6 @@ void processDir_recursive(const char *dn, const char *pstr,
 
   struct dirent **entries = malloc(count * sizeof(struct dirent *));
   if (entries == NULL) {
-    perror(NULL);
     closedir(dir);
     return;
   }
@@ -190,7 +187,6 @@ void processDir_recursive(const char *dn, const char *pstr,
     entry = entries[i];
     char *path;
     if (asprintf(&path, "%s/%s", dn, entry->d_name) == -1) {
-      perror(NULL);
       return;
     }
     char *double_white_space_prefix = "  ";
@@ -214,7 +210,6 @@ void processDir_recursive(const char *dn, const char *pstr,
 
     if (asprintf(&name_with_pstr, "%s%s%s", pstr, prefix_chosen,
                  entry->d_name) == -1) {
-      perror(NULL);
       return;
     }
 
@@ -232,7 +227,6 @@ void processDir_recursive(const char *dn, const char *pstr,
     }
 
     if (asprintf(&new_pstr, "%s%s", pstr, prefix_chosen) == -1) {
-      perror(NULL);
       return;
     }
 
@@ -274,9 +268,9 @@ void processDir_recursive(const char *dn, const char *pstr,
         else
           type = ' ';
 
-        printf("  %8s:%-8s  %10lld  %8lld  %1c", pw ? pw->pw_name : "unknown",
-               gr ? gr->gr_name : "unknown", (long long)sb.st_size,
-               (long long)sb.st_blocks, type);
+        printf("  %8.8s:%-8.8s  %10lld  %8lld  %1c",
+               pw ? pw->pw_name : "unknown", gr ? gr->gr_name : "unknown",
+               (long long)sb.st_size, (long long)sb.st_blocks, type);
         update_dstats_metadata(dstats, &sb);
       }
     }
@@ -312,7 +306,6 @@ void processDir(const char *dn, const char *pstr, struct summary *tstats,
   memset(&dstats, 0, sizeof(dstats));
   DIR *dir = opendir(dn);
   if (dir == NULL) {
-    perror(NULL);
     if (errno == EACCES) {
       printf("  ERROR: Permission denied\n");
     }
@@ -335,7 +328,6 @@ void processDir(const char *dn, const char *pstr, struct summary *tstats,
                  dstats.links == 1 ? "" : "s", dstats.fifos,
                  dstats.fifos == 1 ? "" : "s", dstats.socks,
                  dstats.socks == 1 ? "" : "s") == -1) {
-      perror(NULL);
       return;
     }
 
