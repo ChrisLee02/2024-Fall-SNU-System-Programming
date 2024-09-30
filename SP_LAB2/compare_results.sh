@@ -7,45 +7,81 @@ MY_EXEC="./bin/dirtree"
 # 결과를 저장할 디렉토리
 ANS_DIR="./ans"
 MY_RESULTS_DIR="./my_results"
+DIFF_DIR="./diffs"  # 차이점을 저장할 디렉토리
+DIFF_RESULTS="./diffs.txt"  # 모든 diff 결과를 저장할 파일
 mkdir -p $MY_RESULTS_DIR
+mkdir -p $DIFF_DIR  # 차이점 저장 디렉토리 생성
+> $DIFF_RESULTS  # 기존 diffs.txt 파일 덮어쓰기
 
 # 테스트 케이스 폴더들
 TEST_CASES_DIR="./test_case"
 
-# 차이점을 저장할 파일
-DIFF_RESULTS="./diff_results.txt"
-> $DIFF_RESULTS  # 기존 diff 결과를 덮어씀
-
 # 모든 옵션 조합
 OPTIONS_LIST=("" "-t" "-v" "-s" "-t -v" "-t -s" "-v -s" "-t -v -s")
-# OPTIONS_LIST=("")
+
+# 테스트 케이스 디렉토리 모음
+ALL_TEST_DIRS=()
+for TEST_DIR in $(find $TEST_CASES_DIR -mindepth 1 -maxdepth 1 -type d); do
+    ALL_TEST_DIRS+=("$TEST_DIR")
+done
+
+echo "Running tests..."
 
 # 각 옵션 조합에 대해 테스트 케이스 실행 및 비교
 for OPTIONS in "${OPTIONS_LIST[@]}"; do
-    echo "Comparing results with options: $OPTIONS"
-    
-    # test_case 디렉토리 아래에 있는 모든 폴더를 순회
-    for TEST_DIR in $(find $TEST_CASES_DIR -mindepth 1 -maxdepth 1 -type d); do
-        TEST_NAME=$(basename $TEST_DIR)  # test1, test2 등 폴더 이름 추출
+    # 1. 개별 테스트 케이스 실행 및 비교
+    for TEST_DIR in "${ALL_TEST_DIRS[@]}"; do
+        TEST_NAME=$(basename $TEST_DIR)
         
         REFERENCE_OUTPUT="$ANS_DIR/${TEST_NAME}_ans_${OPTIONS// /_}.txt"
         MY_OUTPUT="$MY_RESULTS_DIR/${TEST_NAME}_my_${OPTIONS// /_}.txt"
         
-        echo "Running test case: $TEST_DIR with my executable and options: $OPTIONS"
-        
-        # 내 실행 파일 실행 후 결과 저장 (옵션을 함께 전달)
-        $MY_EXEC $OPTIONS $TEST_DIR > $MY_OUTPUT
+        $MY_EXEC $OPTIONS $TEST_DIR > $MY_OUTPUT  # 내 파일 실행
         
         # diff로 결과 비교
         diff $REFERENCE_OUTPUT $MY_OUTPUT > /dev/null
-        if [ $? -eq 0 ]; then
-            echo "$TEST_NAME with options '$OPTIONS': PASS"
-        else
-            echo "$TEST_NAME with options '$OPTIONS': FAIL" >> $DIFF_RESULTS
-            echo "Differences found for $TEST_NAME with options '$OPTIONS'. See below:" >> $DIFF_RESULTS
+        if [ $? -ne 0 ]; then
+            DIFF_FILE="$DIFF_DIR/${TEST_NAME}_diff_${OPTIONS// /_}.txt"
+            diff $REFERENCE_OUTPUT $MY_OUTPUT > $DIFF_FILE
             diff $REFERENCE_OUTPUT $MY_OUTPUT >> $DIFF_RESULTS
         fi
     done
+
+    # 2. 여러 테스트 케이스를 2~3개씩 조합해서 실행 및 비교
+    for ((i = 0; i < ${#ALL_TEST_DIRS[@]}; i++)); do
+        for ((j = i + 1; j < ${#ALL_TEST_DIRS[@]}; j++)); do
+            # 2개 조합
+            REFERENCE_OUTPUT="$ANS_DIR/combination_${i}_${j}_ans_${OPTIONS// /_}.txt"
+            MY_OUTPUT="$MY_RESULTS_DIR/combination_${i}_${j}_my_${OPTIONS// /_}.txt"
+            
+            $MY_EXEC $OPTIONS "${ALL_TEST_DIRS[i]}" "${ALL_TEST_DIRS[j]}" > $MY_OUTPUT
+
+            # diff로 결과 비교
+            diff $REFERENCE_OUTPUT $MY_OUTPUT > /dev/null
+            if [ $? -ne 0 ]; then
+                DIFF_FILE="$DIFF_DIR/combination_${i}_${j}_diff_${OPTIONS// /_}.txt"
+                diff $REFERENCE_OUTPUT $MY_OUTPUT > $DIFF_FILE
+                diff $REFERENCE_OUTPUT $MY_OUTPUT >> $DIFF_RESULTS
+            fi
+
+            # 3개 조합
+            for ((k = j + 1; k < ${#ALL_TEST_DIRS[@]}; k++)); do
+                REFERENCE_OUTPUT="$ANS_DIR/combination_${i}_${j}_${k}_ans_${OPTIONS// /_}.txt"
+                MY_OUTPUT="$MY_RESULTS_DIR/combination_${i}_${j}_${k}_my_${OPTIONS// /_}.txt"
+                
+                $MY_EXEC $OPTIONS "${ALL_TEST_DIRS[i]}" "${ALL_TEST_DIRS[j]}" "${ALL_TEST_DIRS[k]}" > $MY_OUTPUT
+
+                # diff로 결과 비교
+                diff $REFERENCE_OUTPUT $MY_OUTPUT > /dev/null
+                if [ $? -ne 0 ]; then
+                    DIFF_FILE="$DIFF_DIR/combination_${i}_${j}_${k}_diff_${OPTIONS// /_}.txt"
+                    diff $REFERENCE_OUTPUT $MY_OUTPUT > $DIFF_FILE
+                    diff $REFERENCE_OUTPUT $MY_OUTPUT >> $DIFF_RESULTS
+                fi
+            done
+        done
+    done
+    echo -n "."
 done
 
-echo "Comparison complete. Check $DIFF_RESULTS for failures and differences."
+echo -e "\nComparison complete. Check $DIFF_DIR for detailed differences and $DIFF_RESULTS for overall results."

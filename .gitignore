@@ -1,4 +1,8 @@
 sample_outputs/
 .vscode
-./SP_LAB2/ans/
-./SP_LAB2/my_results/
+SP_LAB2/ans/
+SP_LAB2/my_results/
+SP_LAB2/.deps/
+SP_LAB2/bin/
+SP_LAB2/obj/
+SP_LAB2/diffs/
