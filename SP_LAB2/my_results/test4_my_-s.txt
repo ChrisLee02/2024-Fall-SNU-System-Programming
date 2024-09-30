@@ -3,5 +3,5 @@ Name
 ./test_case/test4
   ddd
 ----------------------------------------------------------------------------------------------------
-0 files, 1 directory, 0 links, 0 pipes, and 0 sockets                  
+0 files, 1 directory, 0 links, 0 pipes, and 0 sockets               
 

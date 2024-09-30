@@ -340,14 +340,15 @@ void processDir(const char *dn, const char *pstr, struct summary *tstats,
     }
 
     if (strlen(result) > 68) {
-      printf("%.*s...   ", 65, result);
+      printf("%.*s...", 65, result);
     } else {
-      printf("%-68s   ", result);
+      printf("%-68s", result);
     }
 
     if (flags & F_VERBOSE) {
       free(result);
-      printf("%14lld %9lld", (long long)dstats.size, (long long)dstats.blocks);
+      printf("   %14lld %9lld", (long long)dstats.size,
+             (long long)dstats.blocks);
     }
 
     printf("\n\n");

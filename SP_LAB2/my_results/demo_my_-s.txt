@@ -23,5 +23,5 @@ Name
   one
   two
 ----------------------------------------------------------------------------------------------------
-4 files, 13 directories, 2 links, 1 pipe, and 1 socket                 
+4 files, 13 directories, 2 links, 1 pipe, and 1 socket              
 

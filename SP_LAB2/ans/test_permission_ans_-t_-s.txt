@@ -15,5 +15,5 @@ Name
 |-three
 `-two
 ----------------------------------------------------------------------------------------------------
-5 files, 2 directories, 3 links, 1 pipe, and 1 socket                  
+5 files, 2 directories, 3 links, 1 pipe, and 1 socket               
 
