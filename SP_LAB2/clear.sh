@@ -1,0 +1,1 @@
+rm -rf ans my_results diffs
