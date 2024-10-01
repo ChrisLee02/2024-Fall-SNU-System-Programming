@@ -3,8 +3,11 @@
 //
 /// @file
 /// @brief resursively traverse directory tree and list all entries
-/// @author <yourname>
-/// @studid <studentid>
+/// @author Lee, Ha Dong
+/// @studid 2021-18641
+/// @Assignment #: SP_LAB2
+/// @File name: dirtree.c
+
 //--------------------------------------------------------------------------------------------------
 
 #define _GNU_SOURCE
@@ -96,35 +99,6 @@ static int dirent_compare(const void *a, const void *b) {
   return strcmp(e1->d_name, e2->d_name);
 }
 
-// print header according to flags
-void print_header(const char *dn, unsigned int flags) {
-  if (flags & F_SUMMARY) {
-    if (flags & F_VERBOSE) {
-      printf("%-54s  %8s:%-8s  %10s  %8s %1s \n", "Name", "User", "Group",
-             "Size", "Blocks", "Type");
-    } else {
-      printf("Name\n");
-    }
-    printf(
-        "----------------------------------------------------------------------"
-        "------------------------------\n");
-  }
-
-  printf("%s\n", dn);
-}
-
-// update tstats, by adding dstats
-void update_tstats(struct summary *tstats, struct summary *dstats) {
-  tstats->dirs += dstats->dirs;
-  tstats->files += dstats->files;
-  tstats->links += dstats->links;
-  tstats->fifos += dstats->fifos;
-  tstats->socks += dstats->socks;
-
-  tstats->size += dstats->size;
-  tstats->blocks += dstats->blocks;
-}
-
 // update dstats' file count, by incrementing each file/folder's type.
 void update_dstats(struct summary *dstats, struct dirent *entry) {
   switch (entry->d_type) {
@@ -187,6 +161,7 @@ struct dirent **read_and_sort_directory(DIR *dir, int *count) {
 }
 
 /// @brief handle pstr according to flags and element's position
+///         if failed, there's no allocation of memory.
 ///
 /// @param name_with_pstr string to be copied for name with pstr
 /// @param new_pstr string to be copied for next pstr
@@ -238,6 +213,28 @@ int handle_pstr(char **name_with_pstr, char **new_pstr, const char *pstr,
   return 0;
 }
 
+// return character corresponding to each d_type.
+char type_into_character(struct dirent *entry) {
+  switch (entry->d_type) {
+    case DT_DIR:
+      return 'd';
+    case DT_LNK:
+      return 'l';
+    case DT_CHR:
+      return 'c';
+    case DT_BLK:
+      return 'b';
+    case DT_FIFO:
+      return 'f';
+    case DT_SOCK:
+      return 's';
+    case DT_REG:
+      return ' ';
+    default:
+      return ' ';
+  }
+}
+
 // print one line with appropriate format according to flags
 void print_row(const char *name_with_pstr, DIR *dir, struct dirent *entry,
                unsigned int flags, struct summary *dstats) {
@@ -252,29 +249,14 @@ void print_row(const char *name_with_pstr, DIR *dir, struct dirent *entry,
   if (flags & F_VERBOSE) {
     struct stat sb;
     int dd = dirfd(dir);
+    if (dd = -1) return;
     if (fstatat(dd, entry->d_name, &sb, AT_SYMLINK_NOFOLLOW) < 0) {
       printf("No such file or directory");
     } else {
       struct passwd *pw = getpwuid(sb.st_uid);
       struct group *gr = getgrgid(sb.st_gid);
 
-      char type;
-      if (entry->d_type == DT_DIR)
-        type = 'd';
-      else if (entry->d_type == DT_LNK)
-        type = 'l';
-      else if (entry->d_type == DT_CHR)
-        type = 'c';
-      else if (entry->d_type == DT_BLK)
-        type = 'b';
-      else if (entry->d_type == DT_FIFO)
-        type = 'f';
-      else if (entry->d_type == DT_SOCK)
-        type = 's';
-      else if (entry->d_type == DT_REG)
-        type = ' ';
-      else
-        type = ' ';
+      char type = type_into_character(entry);
 
       printf("  %8.8s:%-8.8s  %10lld  %8lld  %1c", pw ? pw->pw_name : "unknown",
              gr ? gr->gr_name : "unknown", (long long)sb.st_size,
@@ -314,6 +296,8 @@ void processDir_recursive(const char *dn, const char *pstr,
     entry = entries[i];
     char *path;
     if (asprintf(&path, "%s/%s", dn, entry->d_name) == -1) {
+      free(entries);
+      closedir(dir);
       return;
     }
 
@@ -322,6 +306,9 @@ void processDir_recursive(const char *dn, const char *pstr,
 
     if (handle_pstr(&name_with_pstr, &new_pstr, pstr, entry, flags,
                     (i == count - 1)) == -1) {
+      free(entries);
+      free(path);
+      closedir(dir);
       return;
     }
 
@@ -339,6 +326,65 @@ void processDir_recursive(const char *dn, const char *pstr,
 
   free(entries);
   closedir(dir);
+}
+
+// print header of each directory according to flags
+void print_header(const char *dn, unsigned int flags) {
+  if (flags & F_SUMMARY) {
+    if (flags & F_VERBOSE) {
+      printf("%-54s  %8s:%-8s  %10s  %8s %1s \n", "Name", "User", "Group",
+             "Size", "Blocks", "Type");
+    } else {
+      printf("Name\n");
+    }
+    printf(
+        "----------------------------------------------------------------------"
+        "------------------------------\n");
+  }
+
+  printf("%s\n", dn);
+}
+
+// print footer of each directory according to flags
+void print_footer(struct summary *dstats, unsigned int flags) {
+  printf(
+      "----------------------------------------------------------------------"
+      "------------------------------\n");
+  char *result;
+  if (asprintf(&result,
+               "%d file%s, %d director%s, %d link%s, %d pipe%s, and %d "
+               "socket%s",
+               dstats->files, dstats->files == 1 ? "" : "s", dstats->dirs,
+               dstats->dirs == 1 ? "y" : "ies", dstats->links,
+               dstats->links == 1 ? "" : "s", dstats->fifos,
+               dstats->fifos == 1 ? "" : "s", dstats->socks,
+               dstats->socks == 1 ? "" : "s") == -1) {
+    return;
+  }
+
+  if (strlen(result) > 68) {
+    printf("%.*s...", 65, result);
+  } else {
+    printf("%-68s", result);
+  }
+
+  if (flags & F_VERBOSE) {
+    printf("   %14llu %9llu", dstats->size, dstats->blocks);
+  }
+  printf("\n\n");
+  free(result);
+}
+
+// update tstats, by adding dstats
+void update_tstats(struct summary *tstats, struct summary *dstats) {
+  tstats->dirs += dstats->dirs;
+  tstats->files += dstats->files;
+  tstats->links += dstats->links;
+  tstats->fifos += dstats->fifos;
+  tstats->socks += dstats->socks;
+
+  tstats->size += dstats->size;
+  tstats->blocks += dstats->blocks;
 }
 
 /// @brief process directory's name with error handling and update tstat
@@ -369,34 +415,7 @@ void processDir(const char *dn, const char *pstr, struct summary *tstats,
 
   update_tstats(tstats, &dstats);
   if (flags & F_SUMMARY) {
-    printf(
-        "----------------------------------------------------------------------"
-        "------------------------------\n");
-    char *result;
-    if (asprintf(&result,
-                 "%d file%s, %d director%s, %d link%s, %d pipe%s, and %d "
-                 "socket%s",
-                 dstats.files, dstats.files == 1 ? "" : "s", dstats.dirs,
-                 dstats.dirs == 1 ? "y" : "ies", dstats.links,
-                 dstats.links == 1 ? "" : "s", dstats.fifos,
-                 dstats.fifos == 1 ? "" : "s", dstats.socks,
-                 dstats.socks == 1 ? "" : "s") == -1) {
-      return;
-    }
-
-    if (strlen(result) > 68) {
-      printf("%.*s...", 65, result);
-    } else {
-      printf("%-68s", result);
-    }
-
-    if (flags & F_VERBOSE) {
-      free(result);
-      printf("   %14lld %9lld", (long long)dstats.size,
-             (long long)dstats.blocks);
-    }
-
-    printf("\n\n");
+    print_footer(&dstats, flags);
   }
 }
 

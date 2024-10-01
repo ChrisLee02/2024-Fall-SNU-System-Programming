@@ -1,0 +1,26 @@
+Name: Lee, Ha Dong
+Student ID: 2021-18641
+Assignment number: SP_LAB2
+Received Help: After I completed, I asked chatGPT to lookup my code and to help finding possible memory leak. I found that I missed one for early return logic thanks to chatGPT.
+Spent time: around 30~40 hours (7 days)
+Assessment: I could learn
+
+- how to use makefile for automating complie logic.
+- how to use file I/O
+- how to use printf with various format
+- how to manage dynamic memory allocation
+- how important to care about possible memory leak.
+- how to write code functionally modularized.
+- using shell script for automating tests, with GPT's help.
+
+Information about dirtree.c:
+
+- In the main function: Execute processDir for each parsed directories.
+- In the processDir: I separated recursive logic to processDir_recurisve, so that processDir handles only 'printing header', 'calling recursive function', 'updating tstats from collected dstats', and 'printing footer'.
+  - I separated each issues into modularized function, each issue corresponds to print_header, processDir_recursive, update_tstats, and print_footer.
+  - The reason I separated recursive logic is that I wanted main function to have minimal logic. I didn't want main function to handle the issues I mentioned above
+- In the processDir_recursive: processDir_recursive handles 'read and put directory's children and sort', 'decide prefix string', 'print each item in the formatted form', 'update dstats', and 'call itself recursive for directory'.
+  - Like above processDir, I separated each issues into modularized function. Each issue corresponds to read_and_sort_directory, handle_pstr, print_row, update_dstats.
+- I changed dirent_compare given by skeleton code to use struct dirent \*\* as I used pointer array to save directories' children.
+- About formatting: used -, + for left/right align. used %n to determine fixed width.
+- About library function I used: opendir/closedir to open/close directory stream, getNext(wrapped readdir in skeleton code) to read directory's children, fstatat with AT_SYMLINK_NOFOLLOW to read metadata(I didn't want to use stat and lstat with if statement.), dirfd to get file descriptor of directory(used in fstat), asprintf to allocate memory and copy string to string variable, qsort, malloc and free.
