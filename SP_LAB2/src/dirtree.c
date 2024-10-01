@@ -249,7 +249,7 @@ void print_row(const char *name_with_pstr, DIR *dir, struct dirent *entry,
   if (flags & F_VERBOSE) {
     struct stat sb;
     int dd = dirfd(dir);
-    if (dd = -1) return;
+    if (dd == -1) return;
     if (fstatat(dd, entry->d_name, &sb, AT_SYMLINK_NOFOLLOW) < 0) {
       printf("No such file or directory");
     } else {
