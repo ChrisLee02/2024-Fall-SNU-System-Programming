@@ -235,8 +235,8 @@ static void set_cpu_limit(void)
 
 {
   struct rlimit s_rlimit;
-  s_rlimit.rlim_cur = 300;
-  s_rlimit.rlim_max = 300;
+  s_rlimit.rlim_cur = 1000;
+  s_rlimit.rlim_max = 1000;
   setrlimit(RLIMIT_CPU, &s_rlimit);
 }
 

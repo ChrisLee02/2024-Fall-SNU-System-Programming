@@ -21,7 +21,7 @@ struct Chunk {
 struct Chunk_Footer {
   Chunk_T prev; /* Pointer to the prev chunk in the free chunk list */
   int units;    /* Capacity of a chunk (chunk units) */
-  int status;   /* CHUNK_FREE or CHUNK_IN_USE */
+  int status;   /* CHUNK_FREE or CHUNK_IN_USE, not used in code.*/
 };
 
 /*--------------------------------------------------------------------*/
@@ -81,9 +81,7 @@ Chunk_T chunk_get_prev_adjacent(Chunk_T c, void *start, void *end) {
   if ((void *)n < start) return NULL;
   return n;
 }
-
 /*--------------------------------------------------------------------*/
-// todo: 여기에다가 header - footer 연결하는 로직을 작성하자...
 Chunk_T chunk_get_header_from_footer(Chunk_F c, void *start, void *end) {
   assert((void *)c <= end);
   assert((void *)c >= start);
@@ -93,7 +91,7 @@ Chunk_T chunk_get_header_from_footer(Chunk_F c, void *start, void *end) {
   if ((void *)n < start) return NULL;
   return n;
 }
-
+/*--------------------------------------------------------------------*/
 Chunk_F chunk_get_footer_from_header(Chunk_T c, void *start, void *end) {
   assert((void *)c <= end);
   assert((void *)c >= start);
