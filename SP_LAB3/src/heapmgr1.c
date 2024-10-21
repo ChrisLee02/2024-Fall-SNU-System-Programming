@@ -18,10 +18,12 @@ enum {
 
 /* g_free_head: point to first chunk in the free list */
 static Chunk_T g_free_head = NULL;
-
+int sbrk_cnt = 0;
+int malloc_cnt = 0;
 /* g_heap_start, g_heap_end: start and end of the heap area.
  * g_heap_end will move if you increase the heap */
 static void *g_heap_start = NULL, *g_heap_end = NULL;
+int max_free_block_units = 0;
 
 #ifndef NDEBUG
 /* check_heap_validity:
@@ -65,7 +67,29 @@ static int check_heap_validity(void) {
   }
   return TRUE;
 }
+
 #endif
+
+void print_all(void) {
+  Chunk_T w;
+  printf("[DEBUG] Checking all chunks in the heap...\n");
+
+  // Iterate through all chunks in the heap
+  for (w = (Chunk_T)g_heap_start; w && w < (Chunk_T)g_heap_end;
+       w = chunk_get_next_adjacent(w, g_heap_start, g_heap_end)) {
+    printf("[DEBUG] Chunk at %p: Status = %s, Units = %d\n", (void *)w,
+           (chunk_get_status(w) == CHUNK_FREE ? "FREE" : "IN USE"),
+           chunk_get_units(w));
+  }
+
+  printf("[DEBUG] Checking all chunks in the free list...\n");
+
+  // Iterate through the free list and print chunks
+  for (w = g_free_head; w; w = chunk_get_next_free_chunk(w)) {
+    printf("[DEBUG] Free chunk at %p: Units = %d\n", (void *)w,
+           chunk_get_units(w));
+  }
+}
 
 /*--------------------------------------------------------------*/
 /* size_to_units:
@@ -112,13 +136,14 @@ static Chunk_T merge_chunk(Chunk_T c1, Chunk_T c2) {
   assert(chunk_get_status(c2) == CHUNK_IN_USE);
 
   int merged_units = chunk_get_units(c1) + chunk_get_units(c2) + 2;
+  chunk_set_units(c1, merged_units);
 
   Chunk_F c1_footer =
       chunk_get_footer_from_header(c1, g_heap_start, g_heap_end);
   assert(c1_footer != NULL);
   chunk_footer_set_units(c1_footer, merged_units);
+  chunk_footer_set_prev_free_chunk(c1_footer, NULL);
 
-  chunk_set_units(c1, merged_units);
   return c1;
 }
 /*--------------------------------------------------------------------*/
@@ -142,19 +167,26 @@ static Chunk_T split_chunk(Chunk_T c, size_t units) {
   // c를 재할당
   all_units = chunk_get_units(c);
 
+  Chunk_F c_footer_old =
+      chunk_get_footer_from_header(c, g_heap_start, g_heap_end);
+  assert(c_footer_old != NULL);
+  Chunk_T c_prev = chunk_footer_get_prev_free_chunk(c_footer_old);
+
+  chunk_set_units(c, all_units - units - 2);
+
   Chunk_F c_footer = chunk_get_footer_from_header(c, g_heap_start, g_heap_end);
   assert(c_footer != NULL);
   chunk_footer_set_units(c_footer, all_units - units - 2);
-  chunk_set_units(c, all_units - units - 2);
+  chunk_footer_set_prev_free_chunk(c_footer, c_prev);
 
   /* prepare for the second chunk */
   c2 = chunk_get_next_adjacent(c, g_heap_start, g_heap_end);
+  chunk_set_units(c2, units);
   Chunk_F c2_footer =
       chunk_get_footer_from_header(c2, g_heap_start, g_heap_end);
   assert(c2_footer != NULL);
   chunk_footer_set_prev_free_chunk(c2_footer, c);
   chunk_footer_set_units(c2_footer, units);
-  chunk_set_units(c2, units);
 
   chunk_set_status(c2, CHUNK_FREE);
   chunk_set_next_free_chunk(c2, c3);
@@ -180,6 +212,7 @@ static void insert_chunk(Chunk_T c) {
   assert(c != NULL);
   assert(chunk_get_units(c) >= 1);
   assert(chunk_get_status(c) == CHUNK_FREE);
+
   Chunk_F c_footer = chunk_get_footer_from_header(c, g_heap_start, g_heap_end);
   assert(c_footer != NULL);
   /* If the free chunk list is empty, chunk c points to itself. */
@@ -233,6 +266,7 @@ static void remove_chunk_from_list(Chunk_T c) {
   }
 
   chunk_set_next_free_chunk(c, NULL);
+  chunk_footer_set_prev_free_chunk(c_footer, NULL);
   chunk_set_status(c, CHUNK_IN_USE);
 }
 /*--------------------------------------------------------------------*/
@@ -243,6 +277,10 @@ static void remove_chunk_from_list(Chunk_T c) {
  */
 /*--------------------------------------------------------------------*/
 static Chunk_T allocate_more_memory(size_t units) {
+  // if (sbrk_cnt % 1000 == 0)
+  //   printf("sbrk: %d times\n", ++sbrk_cnt);
+  // else
+  //   sbrk_cnt++;
   Chunk_T c;
 
   if (units < MEMALLOC_MIN) units = MEMALLOC_MIN;
@@ -252,11 +290,14 @@ static Chunk_T allocate_more_memory(size_t units) {
   if (c == (Chunk_T)-1) return NULL;
 
   g_heap_end = sbrk(0);
+  chunk_set_units(c, units);
   Chunk_F c_footer = chunk_get_footer_from_header(c, g_heap_start, g_heap_end);
   assert(c_footer != NULL);
   chunk_footer_set_units(c_footer, units);
-  chunk_set_units(c, units);
+  chunk_footer_set_prev_free_chunk(c_footer, NULL);
   chunk_set_status(c, CHUNK_FREE);
+  // printf("allocate 직후:\n");
+  // print_all();
 
   insert_chunk(c);
 
@@ -269,6 +310,16 @@ static Chunk_T allocate_more_memory(size_t units) {
  */
 /*--------------------------------------------------------------*/
 void *heapmgr_malloc(size_t size) {
+  // printf("malloc: %d times\n", ++malloc_cnt);
+  // print_all();
+  // if (malloc_cnt % 1000 == 0) {
+  //   printf("malloc: %d times\n", ++malloc_cnt);
+  //   if ((malloc_cnt - 1) % 10000 == 0) {
+  //     print_all();
+  //   }
+  // } else {
+  //   malloc_cnt++;
+  // }
   static int is_init = FALSE;
   Chunk_T c;
   size_t units;
@@ -283,6 +334,8 @@ void *heapmgr_malloc(size_t size) {
   assert(check_heap_validity());
 
   units = size_to_units(size);
+
+  // printf("malloc: units: %d\n", (int)(units));
 
   for (c = g_free_head; c != NULL; c = chunk_get_next_free_chunk(c)) {
     if (chunk_get_units(c) >= units) {
@@ -309,6 +362,8 @@ void *heapmgr_malloc(size_t size) {
   // todo: 크기 split하는 로직 넣고.
 
   assert(chunk_get_units(c) >= units);
+
+  // printf("두 개 프린트: %d %d\n", chunk_get_units(c), (int)units);
 
   if (chunk_get_units(c) > units + 2) c = split_chunk(c, units);
 
