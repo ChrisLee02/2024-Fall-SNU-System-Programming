@@ -152,6 +152,7 @@ static Chunk_T split_chunk(Chunk_T c, size_t units) {
 
   // resize c and reallocate value to new footer
   chunk_set_units(c, all_units - units - 2);
+  chunk_set_next_free_chunk(c, c2);
   Chunk_F c_footer = chunk_get_footer_from_header(c, g_heap_start, g_heap_end);
   assert(c_footer != NULL);
   chunk_footer_set_units(c_footer, all_units - units - 2);
@@ -166,7 +167,6 @@ static Chunk_T split_chunk(Chunk_T c, size_t units) {
   chunk_footer_set_prev_free_chunk(c2_footer, c);
   chunk_footer_set_units(c2_footer, units);
   chunk_set_status(c2, CHUNK_FREE);
-  chunk_set_next_free_chunk(c, c2);
   chunk_set_next_free_chunk(c2, c3);
 
   // if c isn't last element, adjust c3's footer prev value.
@@ -328,8 +328,6 @@ void *heapmgr_malloc(size_t size) {
 
   // allocate new memory
 
-  // todo?: 여기서 최적화가 들어갈 수 있긴 할듯.. 굳이 free list에 넣고 뺄
-  // 이유가 없긴하다.
   c = allocate_more_memory(units);
 
   if (c == NULL) {
