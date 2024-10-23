@@ -11,6 +11,14 @@
 
 #define FALSE 0
 #define TRUE 1
+#define MIN_EXPONENTIAL_BLOCK_UNITS 1
+#define MAX_EXPONENTIAL_BLOCK_UNITS 32
+
+#define MIN_FIXED_BLOCK_UNITS 32
+#define MAX_FIXED_BLOCK_UNITS 65536
+
+#define EXPONENTIAL_BINS 6
+#define FIXED_BINS 2048
 
 enum {
   MEMALLOC_MIN = 1024,
@@ -67,6 +75,87 @@ static int check_heap_validity(void) {
 
 #endif
 
+// from 1 units to 32 units (16 bytes to 512 bytes)
+/*
+0th bin: 1 unit ~ 1 unit
+1th bin: 2 units ~ 2 units
+2th bin: 3 units ~ 4 units
+3th bin: 5 units ~ 8 units
+4th bin: 9 units ~ 16 units
+5th bin: 17 units ~ 32 units
+*/
+static Chunk_T exponential_bins[EXPONENTIAL_BINS];
+
+// from 32 units to 65536 units (512 bytes to 1MB)
+/*
+0th bin: 33 units ~ 64 units
+1th bin: 65 units ~ 96 units
+2th bin: 97 units ~ 128 units
+...
+last bin: 65305 units ~ 65536 units (1MB)
+*/
+static Chunk_T fixed_bins[FIXED_BINS];
+
+static Chunk_T large_chunk_free_head = NULL;
+
+// 지수 범위 초기화
+void init_exponential_bins() {
+  for (int i = 0; i < EXPONENTIAL_BINS; i++) {
+    exponential_bins[i] = NULL;
+  }
+}
+
+// 고정 범위 초기화
+void init_fixed_bins() {
+  for (int i = 0; i < FIXED_BINS; i++) {
+    fixed_bins[i] = NULL;
+  }
+}
+
+Chunk_T find_bin(size_t units) {
+  if (units <= MAX_EXPONENTIAL_BLOCK_UNITS) {
+    for (int i = 0; i < EXPONENTIAL_BINS; i++) {
+      size_t bin_unit_size = MIN_EXPONENTIAL_BLOCK_UNITS << i;
+      if (units <= bin_unit_size) {
+        return exponential_bins[i];
+      }
+    }
+  } else if (units <= MAX_FIXED_BLOCK_UNITS) {
+    for (int i = 0; i < FIXED_BINS; i++) {
+      size_t bin_unit_size =
+          MIN_FIXED_BLOCK_UNITS + (i * MIN_FIXED_BLOCK_UNITS);
+      if (units <= bin_unit_size) {
+        return fixed_bins[i];
+      }
+    }
+  }
+
+  return large_chunk_free_head;
+}
+
+Chunk_T find_best_fit_bin(size_t units) {
+  if (units <= MAX_EXPONENTIAL_BLOCK_UNITS) {
+    for (int i = 0; i < EXPONENTIAL_BINS; i++) {
+      size_t bin_unit_size = MIN_EXPONENTIAL_BLOCK_UNITS << i;
+      if (units <= bin_unit_size && exponential_bins[i] != NULL) {
+        return exponential_bins[i];
+      }
+    }
+  }
+
+  if (units <= MAX_FIXED_BLOCK_UNITS) {
+    for (int i = 0; i < FIXED_BINS; i++) {
+      size_t bin_unit_size =
+          MIN_FIXED_BLOCK_UNITS + (i * MIN_FIXED_BLOCK_UNITS);
+      if (units <= bin_unit_size && fixed_bins[i] != NULL) {
+        return fixed_bins[i];
+      }
+    }
+  }
+
+  return large_chunk_free_head;
+}
+
 /*--------------------------------------------------------------*/
 /* size_to_units:
  * Returns capable number of units for 'size' bytes.
@@ -91,6 +180,10 @@ static Chunk_T get_chunk_from_data_ptr(void *m) {
  */
 /*--------------------------------------------------------------------*/
 static void init_my_heap(void) {
+  /* Initialize bins */
+  init_exponential_bins();
+  init_fixed_bins();
+
   /* Initialize g_heap_start and g_heap_end */
   g_heap_start = g_heap_end = sbrk(0);
   if (g_heap_start == (void *)-1) {
