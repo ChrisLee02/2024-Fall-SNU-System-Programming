@@ -27,7 +27,7 @@ enum {
 
 // function declaration
 static Chunk_T *find_bin(size_t units);
-static Chunk_T find_best_fit_chunk(size_t units);
+static Chunk_T *find_best_fit_bin(size_t units);
 static size_t size_to_units(size_t size);
 static Chunk_T get_chunk_from_data_ptr(void *m);
 static void init_my_heap(void);
@@ -198,6 +198,9 @@ static Chunk_T *find_bin(size_t units) {
     }
   } else if (units <= MAX_FIXED_BLOCK_UNITS) {
     for (int i = 0; i < FIXED_BINS; i++) {
+      // size_t min_units = MIN_FIXED_BLOCK_UNITS + (i * FIXED_BLOCK_INTERVAL);
+      // size_t max_units = min_units + FIXED_BLOCK_INTERVAL - 1;
+
       size_t bin_unit_size =
           MIN_FIXED_BLOCK_UNITS + (i + 1) * FIXED_BLOCK_INTERVAL - 1;
       if (units <= bin_unit_size) {
@@ -209,46 +212,38 @@ static Chunk_T *find_bin(size_t units) {
   return &large_chunk_free_head;
 }
 
-static Chunk_T find_best_fit_chunk(size_t units) {
+static Chunk_T *find_best_fit_bin(size_t units) {
   if (units <= MAX_EXPONENTIAL_BLOCK_UNITS) {
     for (int i = 0; i < EXPONENTIAL_BINS; i++) {
-      size_t bin_unit_size = MIN_EXPONENTIAL_BLOCK_UNITS << i;
+      size_t min_units =
+          (i == 0) ? 1 : (MIN_EXPONENTIAL_BLOCK_UNITS << (i - 1)) + 1;
+      size_t max_units = MIN_EXPONENTIAL_BLOCK_UNITS << i;
 
-      if (units <= bin_unit_size) {
-        for (Chunk_T curr = exponential_bins[i]; curr != NULL;
-             curr = chunk_get_next_free_chunk(curr)) {
-          if (chunk_get_units(curr) >= units) {
-            return curr;
-          }
-        }
+      size_t bin_unit_size = MIN_EXPONENTIAL_BLOCK_UNITS << i;
+      if (units <= bin_unit_size && exponential_bins[i] != NULL) {
+        printf("return exp address: %p", (void *)&exponential_bins[i]);
+        return &exponential_bins[i];
       }
     }
   }
 
   if (units <= MAX_FIXED_BLOCK_UNITS) {
     for (int i = 0; i < FIXED_BINS; i++) {
-      size_t bin_unit_size = MIN_FIXED_BLOCK_UNITS + i * FIXED_BLOCK_INTERVAL;
+      size_t bin_unit_size =
+          MIN_FIXED_BLOCK_UNITS + (i + 1) * FIXED_BLOCK_INTERVAL - 1;
+      if (units <= bin_unit_size && fixed_bins[i] != NULL) {
+        printf("return fixed address: %p", (void *)&fixed_bins[i]);
 
-      if (units <= bin_unit_size) {
-        for (Chunk_T curr = fixed_bins[i]; curr != NULL;
-             curr = chunk_get_next_free_chunk(curr)) {
-          if (chunk_get_units(curr) >= units) {
-            return curr;
-          }
-        }
+        return &fixed_bins[i];
       }
     }
   }
+  printf("return large_chunk_free_head address: %p",
+         (void *)&large_chunk_free_head);
+  return &large_chunk_free_head;
+}
 
-  for (Chunk_T curr = large_chunk_free_head; curr != NULL;
-       curr = chunk_get_next_free_chunk(curr)) {
-    if (chunk_get_units(curr) >= units) {
-      return curr;
-    }
-  }
-
-  return NULL;
-} /*--------------------------------------------------------------*/
+/*--------------------------------------------------------------*/
 /* size_to_units:
  * Returns capable number of units for 'size' bytes.
  */
@@ -484,25 +479,35 @@ void *heapmgr_malloc(size_t size) {
 
   units = size_to_units(size);
 
-  c = find_best_fit_chunk(units);
+  printf("==========\nmalloc started\n");
 
-  if (c != NULL) {
+  Chunk_T *free_head = find_best_fit_bin(units);
+
+  printf("=====\n freehead add: %p %d's add val: %p \n", (void *)free_head,
+         *free_head ? chunk_get_units(*free_head) : 63,
+         (void *)find_bin(*free_head ? chunk_get_units(*free_head) : 63));
+
+  if (*free_head != NULL) {
+    printf("get free head\n");
+
+    c = *free_head;  // => 이게 문제였음. 결국 for문을 돌긴 해야하는디...ㅄ
+    // if (chunk_get_units(c) >= units) {
+    //   printf("=====\n %d %d \n", chunk_get_units(c), (int)units);
+    // }
     assert(chunk_get_units(c) >= units);
-    if (chunk_get_units(c) > units + 2) {
-      c = split_and_relocate_chunk(c, units);
-    } else {
-      remove_chunk_from_list(c);
-    }
-    assert(check_heap_validity());
+    if (chunk_get_units(c) > units + 2) c = split_and_relocate_chunk(c, units);
 
     assert(chunk_get_status(c) == CHUNK_IN_USE);
 
+    assert(check_heap_validity());
     return (void *)((char *)c + CHUNK_UNIT);
   }
 
   // case of there's no fit free chunk in list
 
   // allocate new memory
+  printf("no free head\n");
+
   c = allocate_more_memory(units);
 
   if (c == NULL) {
