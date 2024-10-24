@@ -1,0 +1,27 @@
+       Executable          Test   Count   Size   Time        Mem
+================================================================
+ ./testheapmgrgnu    LIFO_fixed  100000   1000   0.14   0.00   0.14  100700160
+ ./testheapmgrgnu    FIFO_fixed  100000   1000   0.02   0.01   0.03       8192
+ ./testheapmgrgnu   LIFO_random  100000   1000   0.01   0.01   0.02   51499008
+ ./testheapmgrgnu   FIFO_random  100000   1000   0.01   0.01   0.02   51499008
+ ./testheapmgrgnu  random_fixed  100000   1000      -      -   0.02   29040640
+ ./testheapmgrgnu random_random  100000   1000      -      -   0.01   16355328
+ ./testheapmgrgnu         worst  100000   1000      -      -   0.01   27303936
+----------------------------------------------------------------
+ ./testheapmgrgnu    FIFO_fixed  100000  10000   0.19   0.02   0.21       4096
+ ./testheapmgrgnu    LIFO_fixed  100000  10000   0.09   0.17   0.26       4096
+ ./testheapmgrgnu   LIFO_random  100000  10000   0.08   0.01   0.09  501202944
+ ./testheapmgrgnu   FIFO_random  100000  10000   0.08   0.02   0.10   48517120
+ ./testheapmgrgnu  random_fixed  100000  10000      -      -   0.06       4096
+ ./testheapmgrgnu random_random  100000  10000      -      -   0.05  158699520
+ ./testheapmgrgnu         worst  100000  10000      -      -   0.05  252403712
+================================================================
+   ./testheapmgr1    LIFO_fixed  100000   1000   0.39   0.01   0.40  109445472
+   ./testheapmgr1    FIFO_fixed  100000   1000   0.38   0.01   0.39  109445472
+   ./testheapmgr1   LIFO_random  100000   1000   0.06   0.00   0.06   54402624
+   ./testheapmgr1   FIFO_random  100000   1000   0.06   0.00   0.06   54402624
+   ./testheapmgr1  random_fixed  100000   1000      -      -   0.04   34687008
+   ./testheapmgr1 random_random  100000   1000      -      -   0.03   17154720
+   ./testheapmgr1         worst  100000   1000      -      -  26.83   29926368
+----------------------------------------------------------------
+   ./testheapmgr1    FIFO_fixed  100000  10000 
