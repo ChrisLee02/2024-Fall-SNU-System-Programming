@@ -32,7 +32,7 @@ static size_t size_to_units(size_t size);
 static Chunk_T get_chunk_from_data_ptr(void *m);
 static void init_my_heap(void);
 static Chunk_T merge_chunk(Chunk_T c1, Chunk_T c2);
-static Chunk_T split_and_relocate_chunk(Chunk_T c, size_t units);
+static Chunk_T split_and_relocate_remaining_chunk(Chunk_T c, size_t units);
 static void insert_chunk(Chunk_T c);
 static void remove_chunk_from_list(Chunk_T c);
 static Chunk_T allocate_more_memory(size_t units);
@@ -310,7 +310,7 @@ static Chunk_T merge_chunk(Chunk_T c1, Chunk_T c2) {
  * 파트는 새로운 bin에 집어넣는다.
  */
 /*--------------------------------------------------------------------*/
-static Chunk_T split_and_relocate_chunk(Chunk_T c, size_t units) {
+static Chunk_T split_and_relocate_remaining_chunk(Chunk_T c, size_t units) {
   Chunk_T c2;
   size_t all_units;
 
@@ -495,7 +495,8 @@ void *heapmgr_malloc(size_t size) {
     //   printf("=====\n %d %d \n", chunk_get_units(c), (int)units);
     // }
     assert(chunk_get_units(c) >= units);
-    if (chunk_get_units(c) > units + 2) c = split_and_relocate_chunk(c, units);
+    if (chunk_get_units(c) > units + 2)
+      c = split_and_relocate_remaining_chunk(c, units);
 
     assert(chunk_get_status(c) == CHUNK_IN_USE);
 

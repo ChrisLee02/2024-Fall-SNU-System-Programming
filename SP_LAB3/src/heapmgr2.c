@@ -32,17 +32,19 @@ static size_t size_to_units(size_t size);
 static Chunk_T get_chunk_from_data_ptr(void *m);
 static void init_my_heap(void);
 static Chunk_T merge_chunk(Chunk_T c1, Chunk_T c2);
-static Chunk_T split_and_relocate_chunk(Chunk_T c, size_t units);
+static Chunk_T split_and_relocate_remaining_chunk(Chunk_T c, size_t units);
 static void insert_chunk(Chunk_T c);
 static void remove_chunk_from_list(Chunk_T c);
 static Chunk_T allocate_more_memory(size_t units);
 
-/* g_free_head: point to first chunk in the free list */
-// static Chunk_T g_free_head = NULL;
 /* g_heap_start, g_heap_end: start and end of the heap area.
  * g_heap_end will move if you increase the heap */
+static void *g_heap_start = NULL, *g_heap_end = NULL;
 
-// from 1 units to 32 units (16 bytes to 512 bytes)
+/* exponential_bins: bins for 1 unit to 32 units with exponential range.
+ * each element corresponds to header of free list of that range */
+
+// from 1 unit to 32 units (16 bytes to 512 bytes)
 /*
 0th bin: 1 unit ~ 1 unit
 1th bin: 2 units ~ 2 units
@@ -52,6 +54,9 @@ static Chunk_T allocate_more_memory(size_t units);
 5th bin: 17 units ~ 32 units
 */
 static Chunk_T exponential_bins[EXPONENTIAL_BINS];
+
+/* fixed_bins: bins for 33 unit to 65536 units(1MB) with fixed range.
+ * each element corresponds to header of free list of that range */
 
 // from 33 units to 65536 units (512 bytes to 1MB)
 /*
@@ -63,9 +68,9 @@ last bin: 65505 units ~ 65536 units (1MB) 2048
 */
 static Chunk_T fixed_bins[FIXED_BINS];
 
+/* large_chunk_free_head: header of free list for large chunk(>1MB).
+ * each element corresponds to header of free list of that range */
 static Chunk_T large_chunk_free_head = NULL;
-
-static void *g_heap_start = NULL, *g_heap_end = NULL;
 
 #ifndef NDEBUG
 /* check_heap_validity:
@@ -87,7 +92,7 @@ static int check_heap_validity(void) {
     return FALSE;
   }
 
-  // 지수 범위의 모든 bin을 순차적으로 검사
+  // validate every free chunk in exponential_bins
   for (int i = 0; i < EXPONENTIAL_BINS; i++) {
     size_t min_units =
         (i == 0) ? 1 : (MIN_EXPONENTIAL_BLOCK_UNITS << (i - 1)) + 1;
@@ -96,7 +101,7 @@ static int check_heap_validity(void) {
     for (w = exponential_bins[i]; w != NULL; w = chunk_get_next_free_chunk(w)) {
       size_t units = chunk_get_units(w);
 
-      // 청크가 올바른 범위의 유닛을 가지는지 검사
+      // inspect range validity
       if (units < min_units || units > max_units) {
         fprintf(stderr,
                 "Chunk in exponential bin %d has invalid units (%zu not in "
@@ -117,7 +122,7 @@ static int check_heap_validity(void) {
     }
   }
 
-  // 고정 범위의 모든 bin을 순차적으로 검사
+  // validate every free chunk in fixed_bins
   for (int i = 0; i < FIXED_BINS; i++) {
     size_t min_units = MIN_FIXED_BLOCK_UNITS + (i * FIXED_BLOCK_INTERVAL);
     size_t max_units = min_units + FIXED_BLOCK_INTERVAL - 1;
@@ -125,7 +130,7 @@ static int check_heap_validity(void) {
     for (w = fixed_bins[i]; w != NULL; w = chunk_get_next_free_chunk(w)) {
       size_t units = chunk_get_units(w);
 
-      // 청크가 올바른 범위의 유닛을 가지는지 검사
+      // inspect range validity
       if (units < min_units || units > max_units) {
         fprintf(
             stderr,
@@ -146,7 +151,7 @@ static int check_heap_validity(void) {
     }
   }
 
-  // 큰 청크 관리 리스트 검사
+  // inspect large_chunk_free_list
   for (w = large_chunk_free_head; w != NULL; w = chunk_get_next_free_chunk(w)) {
     size_t units = chunk_get_units(w);
     if (units <= MAX_FIXED_BLOCK_UNITS) {
@@ -171,23 +176,33 @@ static int check_heap_validity(void) {
 }
 #endif
 
-// todo: 주어진 청크를 삽입하는 경우에, head가 나타내는 범위랑 해당 청크의
-// todo: 유닛이 일치하는지 assert하는 로직이 필요함
-
-// 지수 범위 초기화
+/*--------------------------------------------------------------------*/
+/* init_exponential_bins:
+ * Initialize exponential bins with each element set as NULL pointer
+ */
+/*--------------------------------------------------------------------*/
 static void init_exponential_bins() {
   for (int i = 0; i < EXPONENTIAL_BINS; i++) {
     exponential_bins[i] = NULL;
   }
 }
 
-// 고정 범위 초기화
+/*--------------------------------------------------------------------*/
+/* init_fixed_bins:
+ * Initialize fixed bins with each element set as NULL pointer
+ */
+/*--------------------------------------------------------------------*/
 static void init_fixed_bins() {
   for (int i = 0; i < FIXED_BINS; i++) {
     fixed_bins[i] = NULL;
   }
 }
 
+/*--------------------------------------------------------------------*/
+/* find_bin:
+ * return bin correspoding to given units
+ */
+/*--------------------------------------------------------------------*/
 static Chunk_T *find_bin(size_t units) {
   if (units <= MAX_EXPONENTIAL_BLOCK_UNITS) {
     for (int i = 0; i < EXPONENTIAL_BINS; i++) {
@@ -209,6 +224,14 @@ static Chunk_T *find_bin(size_t units) {
   return &large_chunk_free_head;
 }
 
+/*--------------------------------------------------------------------*/
+/* find_best_fit_chunk:
+ * Return best fit chunk by searching chunk from bins.
+ * If there's no fit chunk in its own corresponding bin, then search through the
+ * upper bins.
+ * If there's no fit chunk, return NULL.
+ */
+/*--------------------------------------------------------------------*/
 static Chunk_T find_best_fit_chunk(size_t units) {
   if (units <= MAX_EXPONENTIAL_BLOCK_UNITS) {
     for (int i = 0; i < EXPONENTIAL_BINS; i++) {
@@ -310,12 +333,13 @@ static Chunk_T merge_chunk(Chunk_T c1, Chunk_T c2) {
   return c1;
 }
 /* split_and_relocate_chunk:
- * 프리 리스트 안에 있는 c를 받아서, c를 프리 리스트에서 제거한 뒤,
- * 두 조각으로 나눈다. units에 해당하는 파트는 리턴하고, 나머지에 해당하는
- * 파트는 새로운 bin에 집어넣는다.
+ * Receive chunk c in the free list.
+ * Remove c from free list, and split it into two chunks.
+ * Return the chunk with given size 'units' as CHUNK_IN_USE.
+ * Insert the chunk with the rest size into its correspoding bin.
  */
 /*--------------------------------------------------------------------*/
-static Chunk_T split_and_relocate_chunk(Chunk_T c, size_t units) {
+static Chunk_T split_and_relocate_remaining_chunk(Chunk_T c, size_t units) {
   Chunk_T c2;
   size_t all_units;
 
@@ -335,8 +359,8 @@ static Chunk_T split_and_relocate_chunk(Chunk_T c, size_t units) {
   assert(c_footer != NULL);
   chunk_footer_set_units(c_footer, all_units - units - 2);
   chunk_set_status(c, CHUNK_FREE);
-  // relocate c
 
+  // relocate c into new bin.
   insert_chunk(c);
 
   // prepare for the second chunk
@@ -353,14 +377,16 @@ static Chunk_T split_and_relocate_chunk(Chunk_T c, size_t units) {
 
 /*--------------------------------------------------------------------*/
 /* insert_chunk:
- * insert free chunk c into the first place of free list.
- * simply insert and don't merge any chunk.
+ * Insert free chunk c into the first place of its correspoding bin.
+ * Simply insert and don't merge any chunk.
+ * Merge should be handled before inserting.
  */
 /*--------------------------------------------------------------------*/
 static void insert_chunk(Chunk_T c) {
   assert(c != NULL);
   assert(chunk_get_units(c) >= 1);
   assert(chunk_get_status(c) == CHUNK_FREE);
+  // todo: assertion 로직 for 양옆 청크
 
   Chunk_T *free_head = find_bin(chunk_get_units(c));
   assert(free_head != NULL);
@@ -390,7 +416,7 @@ static void insert_chunk(Chunk_T c) {
 
 /*--------------------------------------------------------------------*/
 /* remove_chunk_from_list:
- * remove free chunk c from free list and mark it as CHUNK_IN_USE.
+ * Remove free chunk c from free list and mark it as CHUNK_IN_USE.
  */
 /*--------------------------------------------------------------------*/
 static void remove_chunk_from_list(Chunk_T c) {
@@ -437,10 +463,11 @@ static void remove_chunk_from_list(Chunk_T c) {
 }
 /*--------------------------------------------------------------------*/
 /* allocate_more_memory:
- * requests additional memory from the system using `sbrk()`.
- * Allocates `units` chunk units, plus space for a header and footer.
- * if units is smaller than MEMALLOC_MIN, use MEMALLOC_MIN.
- * after allocated, initialize its header and footer and put it to free list.
+ * Requests additional memory from the system using `sbrk()`.
+ * Allocates `units` as requested units plus space for a header and footer(=2).
+ * If units is smaller than MEMALLOC_MIN, use MEMALLOC_MIN.
+ * After allocated, initialize its header and footer's unit value.
+ * Return allocated chunk.
  */
 /*--------------------------------------------------------------------*/
 static Chunk_T allocate_more_memory(size_t units) {
@@ -489,12 +516,11 @@ void *heapmgr_malloc(size_t size) {
   if (c != NULL) {
     assert(chunk_get_units(c) >= units);
     if (chunk_get_units(c) > units + 2) {
-      c = split_and_relocate_chunk(c, units);
+      c = split_and_relocate_remaining_chunk(c, units);
     } else {
       remove_chunk_from_list(c);
     }
     assert(check_heap_validity());
-
     assert(chunk_get_status(c) == CHUNK_IN_USE);
 
     return (void *)((char *)c + CHUNK_UNIT);
