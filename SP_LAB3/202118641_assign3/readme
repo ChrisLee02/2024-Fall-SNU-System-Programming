@@ -9,7 +9,7 @@ After completed heapmgr2, I realized the importance of efficient algorithm and O
 
 Test result of ./testheap2:
 - I used testheapmgr_add.c to make executable test files.
-- Changed test sequence for convenience.
+- Changed test sequence for convenience.(to see testheapmgr1, 2's result first.)
        Executable          Test   Count   Size   Time        Mem
 ================================================================
  ./testheapmgrgnu    LIFO_fixed  100000   1000   0.04   0.00   0.04  100700160
