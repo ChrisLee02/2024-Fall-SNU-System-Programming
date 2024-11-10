@@ -12,7 +12,7 @@
 #include "util.h"
 
 extern volatile int bg_array_idx;
-extern int *bg_array;
+extern BgProcess *bg_array;
 extern int bg_cnt;
 
 /*---------------------------------------------------------------------------*/
@@ -150,9 +150,15 @@ int fork_exec(DynArray_T oTokens, int is_background) {
       exit(EXIT_FAILURE);
     }
   } else {
-    if (!is_background && waitpid(pid, &status, 0) < 0) {
-      error_print("Waitpid failed", PERROR);
-      return -1;
+    if (is_background) {
+      bg_array[bg_array_idx].pid = pid;
+      bg_array[bg_array_idx].pgid = pid;
+      bg_array_idx++;
+    } else {
+      if (waitpid(pid, &status, 0) < 0) {
+        error_print("Waitpid failed", PERROR);
+        return -1;
+      }
     }
   }
 
@@ -172,7 +178,7 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
   int pipe_index[1024];
   char *args[1024];
   int status;
-  pid_t first_child, pid;
+  pid_t pgid, pid;
 
   for (int i = 0; i < pcount; i++) {
     if (pipe(pipe_fds[i]) < 0) {
@@ -190,14 +196,14 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
   }
 
   // first child
-  first_child = fork();
+  pgid = fork();
 
-  if (first_child < 0) {
+  if (pgid < 0) {
     error_print("Fork failed", PERROR);
     return -1;
   }
 
-  if (first_child == 0) {
+  if (pgid == 0) {
     signal(SIGINT, SIG_DFL);
     build_command_partial(oTokens, 0, pipe_index[0], args);
     dup2(pipe_fds[0][1], STDOUT_FILENO);
@@ -205,10 +211,15 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
       close(pipe_fds[j][0]);
       close(pipe_fds[j][1]);
     }
+
     if (execvp(args[0], args) < 0) {
       error_print(args[0], PERROR);
       exit(EXIT_FAILURE);
     }
+  } else {
+    bg_array[bg_array_idx].pid = pgid;
+    bg_array[bg_array_idx].pgid = pgid;
+    bg_array_idx++;
   }
 
   // between
@@ -229,10 +240,15 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
         close(pipe_fds[j][0]);
         close(pipe_fds[j][1]);
       }
+
       if (execvp(args[0], args) < 0) {
         error_print(args[0], PERROR);
         exit(EXIT_FAILURE);
       }
+    } else {
+      bg_array[bg_array_idx].pid = pid;
+      bg_array[bg_array_idx].pgid = pgid;
+      bg_array_idx++;
     }
   }
 
@@ -253,10 +269,15 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
       close(pipe_fds[j][0]);
       close(pipe_fds[j][1]);
     }
+
     if (execvp(args[0], args) < 0) {
       error_print(args[0], PERROR);
       exit(EXIT_FAILURE);
     }
+  } else {
+    bg_array[bg_array_idx].pid = pid;
+    bg_array[bg_array_idx].pgid = pgid;
+    bg_array_idx++;
   }
 
   // parent
@@ -264,6 +285,8 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
     close(pipe_fds[i][0]);
     close(pipe_fds[i][1]);
   }
+
+  if (is_background) return pgid;
 
   while ((pid = waitpid(-1, &status, 0)) > 0) {
   }
@@ -273,6 +296,6 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
     return -1;
   }
 
-  return first_child;
+  return pgid;
 }
 /*---------------------------------------------------------------------------*/

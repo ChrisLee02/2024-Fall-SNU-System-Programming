@@ -12,7 +12,7 @@
 #include "util.h"
 
 volatile int bg_array_idx;
-int *bg_array;
+BgProcess *bg_array;
 int bg_cnt;
 
 /*---------------------------------------------------------------------------*/
@@ -25,13 +25,35 @@ static void sigzombie_handler(int signo) {
 
   if (signo == SIGCHLD) {
     while ((pid = waitpid(-1, &stat, WNOHANG)) > 0) {
-      //
-      // TODO sigzombie_handler() in snush.c start
-      //
+      int found_idx = -1;
+      pid_t pgid = -1;
 
-      //
-      // TODO sigzombie_handler() in snush.c end
-      //
+      for (int i = 0; i < bg_array_idx; i++) {
+        if (bg_array[i].pid == pid) {
+          pgid = bg_array[i].pgid;
+          found_idx = i;
+          break;
+        }
+      }
+
+      assert(found_idx != -1 && pgid != -1);
+
+      for (int i = found_idx; i < bg_array_idx - 1; i++) {
+        bg_array[i] = bg_array[i + 1];
+      }
+      bg_array_idx--;
+
+      int pgid_exists = 0;
+      for (int i = 0; i < bg_array_idx; i++) {
+        if (bg_array[i].pgid == pgid) {
+          pgid_exists = 1;
+          break;
+        }
+      }
+
+      if (!pgid_exists) {
+        printf("[%d] Done background process group\n", pgid);
+      }
     }
 
     if (pid < 0 && errno != ECHILD && errno != EINTR) {
@@ -41,6 +63,7 @@ static void sigzombie_handler(int signo) {
 
   return;
 }
+
 /*---------------------------------------------------------------------------*/
 static void shell_helper(const char *in_line) {
   DynArray_T oTokens;
@@ -72,15 +95,15 @@ static void shell_helper(const char *in_line) {
         if (btype == NORMAL) {
           is_background = check_bg(oTokens);
 
-          if (bg_array_idx == MAX_BG_PRO) {
+          pcount = count_pipe(oTokens);
+
+          if (is_background && bg_array_idx + pcount + 1 > MAX_BG_PRO) {
             error_print(
                 "Program exceeds the maximum number of the "
                 "background processes\n",
                 FPRINTF);
             exit(EXIT_FAILURE);
           }
-
-          pcount = count_pipe(oTokens);
 
           if (pcount > 0) {
             ret_pgid = iter_pipe_fork_exec(pcount, oTokens, is_background);
@@ -144,7 +167,7 @@ int main(int argc, char *argv[]) {
   char c_line[MAX_LINE_SIZE + 2];
 
   /* Initialize Background process array and stack */
-  bg_array = calloc(MAX_BG_PRO, sizeof(int));
+  bg_array = calloc(MAX_BG_PRO, sizeof(BgProcess));
 
   atexit(cleanup);
 
