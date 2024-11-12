@@ -91,6 +91,7 @@ void execute_builtin(DynArray_T oTokens, enum BuiltinType btype) {
   switch (btype) {
     case B_EXIT:
       if (dynarray_get_length(oTokens) == 1) {
+        // printf("\n");
         dynarray_map(oTokens, free_token, NULL);
         dynarray_free(oTokens);
 
@@ -136,6 +137,7 @@ int fork_exec(DynArray_T oTokens, int is_background) {
   sigset_t oldset, blockset;
   sigemptyset(&blockset);
   sigaddset(&blockset, SIGCHLD);
+
   pid_t pid = fork();
 
   if (pid < 0) {
@@ -177,7 +179,6 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
   int pipe_fds[1024][2];
   int pipe_index[1024];
   char *args[1024];
-  pid_t pids[1024];
   int status;
   sigset_t oldset, blockset;
   sigemptyset(&blockset);
@@ -228,7 +229,6 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
       bg_array_idx++;
       sigprocmask(SIG_SETMASK, &oldset, NULL);
     }
-    pids[0] = pgid;
   }
 
   // between
@@ -240,6 +240,7 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
     }
     if (pid == 0) {
       signal(SIGINT, SIG_DFL);
+      setpgid(0, pgid);
       build_command_partial(oTokens, pipe_index[i - 1] + 1, pipe_index[i],
                             args);
 
@@ -262,7 +263,6 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
         bg_array_idx++;
         sigprocmask(SIG_SETMASK, &oldset, NULL);
       }
-      pids[i] = pgid;
     }
   }
 
@@ -276,6 +276,7 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
 
   if (pid == 0) {
     signal(SIGINT, SIG_DFL);
+    setpgid(0, pgid);
     build_command_partial(oTokens, pipe_index[pcount - 1],
                           dynarray_get_length(oTokens), args);
     dup2(pipe_fds[pcount - 1][0], STDIN_FILENO);
@@ -296,7 +297,6 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
       bg_array_idx++;
       sigprocmask(SIG_SETMASK, &oldset, NULL);
     }
-    pids[pcount] = pgid;
   }
 
   // parent
@@ -307,13 +307,14 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
 
   if (is_background) return pgid;
 
-  for (int i = 0; i <= pcount; i++) {
-    if ((pid = waitpid(pids[i], &status, 0)) < 0) {
-      if (pid == -1 && errno != ECHILD && errno != EINTR) {
-        error_print("Waitpid failed", PERROR);
-        return -1;
-      }
-    }
+  // 여기서, 정확히 파이프에 있는 child에 대해서만 기다리는게 맞다.
+  while ((pid = waitpid(-pgid, &status, 0)) > 0) {
+    printf("C\n");
+  }
+
+  if (pid == -1 && errno != ECHILD && errno != EINTR) {
+    error_print("Waitpid failed", PERROR);
+    return -1;
   }
 
   return pgid;
