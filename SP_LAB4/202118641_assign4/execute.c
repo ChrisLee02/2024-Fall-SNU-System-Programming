@@ -91,7 +91,6 @@ void execute_builtin(DynArray_T oTokens, enum BuiltinType btype) {
   switch (btype) {
     case B_EXIT:
       if (dynarray_get_length(oTokens) == 1) {
-        // printf("\n");
         dynarray_map(oTokens, free_token, NULL);
         dynarray_free(oTokens);
 
@@ -137,7 +136,6 @@ int fork_exec(DynArray_T oTokens, int is_background) {
   sigset_t oldset, blockset;
   sigemptyset(&blockset);
   sigaddset(&blockset, SIGCHLD);
-
   pid_t pid = fork();
 
   if (pid < 0) {
@@ -179,6 +177,7 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
   int pipe_fds[1024][2];
   int pipe_index[1024];
   char *args[1024];
+  pid_t pids[1024];
   int status;
   sigset_t oldset, blockset;
   sigemptyset(&blockset);
@@ -222,11 +221,14 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
       exit(EXIT_FAILURE);
     }
   } else {
-    sigprocmask(SIG_BLOCK, &blockset, &oldset);
-    bg_array[bg_array_idx].pid = pgid;
-    bg_array[bg_array_idx].pgid = pgid;
-    bg_array_idx++;
-    sigprocmask(SIG_SETMASK, &oldset, NULL);
+    if (is_background) {
+      sigprocmask(SIG_BLOCK, &blockset, &oldset);
+      bg_array[bg_array_idx].pid = pgid;
+      bg_array[bg_array_idx].pgid = pgid;
+      bg_array_idx++;
+      sigprocmask(SIG_SETMASK, &oldset, NULL);
+    }
+    pids[0] = pgid;
   }
 
   // between
@@ -253,11 +255,14 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
         exit(EXIT_FAILURE);
       }
     } else {
-      sigprocmask(SIG_BLOCK, &blockset, &oldset);
-      bg_array[bg_array_idx].pid = pid;
-      bg_array[bg_array_idx].pgid = pgid;
-      bg_array_idx++;
-      sigprocmask(SIG_SETMASK, &oldset, NULL);
+      if (is_background) {
+        sigprocmask(SIG_BLOCK, &blockset, &oldset);
+        bg_array[bg_array_idx].pid = pid;
+        bg_array[bg_array_idx].pgid = pgid;
+        bg_array_idx++;
+        sigprocmask(SIG_SETMASK, &oldset, NULL);
+      }
+      pids[i] = pgid;
     }
   }
 
@@ -284,11 +289,14 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
       exit(EXIT_FAILURE);
     }
   } else {
-    sigprocmask(SIG_BLOCK, &blockset, &oldset);
-    bg_array[bg_array_idx].pid = pid;
-    bg_array[bg_array_idx].pgid = pgid;
-    bg_array_idx++;
-    sigprocmask(SIG_SETMASK, &oldset, NULL);
+    if (is_background) {
+      sigprocmask(SIG_BLOCK, &blockset, &oldset);
+      bg_array[bg_array_idx].pid = pid;
+      bg_array[bg_array_idx].pgid = pgid;
+      bg_array_idx++;
+      sigprocmask(SIG_SETMASK, &oldset, NULL);
+    }
+    pids[pcount] = pgid;
   }
 
   // parent
@@ -299,12 +307,13 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
 
   if (is_background) return pgid;
 
-  while ((pid = waitpid(-1, &status, 0)) > 0) {
-  }
-
-  if (pid == -1 && errno != ECHILD && errno != EINTR) {
-    error_print("Waitpid failed", PERROR);
-    return -1;
+  for (int i = 0; i <= pcount; i++) {
+    if ((pid = waitpid(pids[i], &status, 0)) < 0) {
+      if (pid == -1 && errno != ECHILD && errno != EINTR) {
+        error_print("Waitpid failed", PERROR);
+        return -1;
+      }
+    }
   }
 
   return pgid;
