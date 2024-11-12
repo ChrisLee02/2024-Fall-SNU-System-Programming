@@ -23,9 +23,17 @@ void redout_handler(char *fname) {
   if (fd < 0) {
     error_print(NULL, PERROR);
     exit(EXIT_FAILURE);
-  } else {
-    dup2(fd, STDOUT_FILENO);
+  }
+
+  if (dup2(fd, STDOUT_FILENO) < 0) {
+    error_print(NULL, PERROR);
     close(fd);
+    exit(EXIT_FAILURE);
+  }
+
+  if (close(fd) < 0) {
+    error_print(NULL, PERROR);
+    exit(EXIT_FAILURE);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -36,9 +44,17 @@ void redin_handler(char *fname) {
   if (fd < 0) {
     error_print(NULL, PERROR);
     exit(EXIT_FAILURE);
-  } else {
-    dup2(fd, STDIN_FILENO);
+  }
+
+  if (dup2(fd, STDIN_FILENO) < 0) {
+    error_print(NULL, PERROR);
     close(fd);
+    exit(EXIT_FAILURE);
+  }
+
+  if (close(fd) < 0) {
+    error_print(NULL, PERROR);
+    exit(EXIT_FAILURE);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -168,6 +184,14 @@ int fork_exec(DynArray_T oTokens, int is_background) {
 
   return pid;
 }
+
+void close_all_pipes(int pipe_fds[][2], int pcount) {
+  for (int j = 0; j < pcount; j++) {
+    if (close(pipe_fds[j][0]) < 0) perror("close failed");
+    if (close(pipe_fds[j][1]) < 0) perror("close failed");
+  }
+}
+
 /*---------------------------------------------------------------------------*/
 /* Important Notice!!
         Add "signal(SIGINT, SIG_DFL);" after fork
@@ -186,8 +210,9 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
 
   for (int i = 0; i < pcount; i++) {
     if (pipe(pipe_fds[i]) < 0) {
+      close_all_pipes(pipe_fds, i);
       error_print("Pipe failed", PERROR);
-      exit(EXIT_FAILURE);
+      return -1;
     }
   }
 
@@ -210,14 +235,16 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
   if (pgid == 0) {
     signal(SIGINT, SIG_DFL);
     build_command_partial(oTokens, 0, pipe_index[0], args);
-    dup2(pipe_fds[0][1], STDOUT_FILENO);
-    for (int j = 0; j < pcount; j++) {
-      close(pipe_fds[j][0]);
-      close(pipe_fds[j][1]);
+    if (dup2(pipe_fds[0][1], STDOUT_FILENO) < 0) {
+      perror("dup2 failed");
+      close_all_pipes(pipe_fds, pcount);  // ====== 추가된 리소스 정리 ======
+      exit(EXIT_FAILURE);
     }
 
+    close_all_pipes(pipe_fds, pcount);
     if (execvp(args[0], args) < 0) {
       error_print(args[0], PERROR);
+      close_all_pipes(pipe_fds, pcount);
       exit(EXIT_FAILURE);
     }
   } else {
@@ -243,25 +270,42 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
       build_command_partial(oTokens, pipe_index[i - 1] + 1, pipe_index[i],
                             args);
 
-      dup2(pipe_fds[i - 1][0], STDIN_FILENO);
-      dup2(pipe_fds[i][1], STDOUT_FILENO);
-      for (int j = 0; j < pcount; j++) {
-        close(pipe_fds[j][0]);
-        close(pipe_fds[j][1]);
+      if (dup2(pipe_fds[i - 1][0], STDIN_FILENO) < 0) {
+        perror("dup2 failed");
+        close_all_pipes(pipe_fds, pcount);  // 추가된 부분
+        exit(EXIT_FAILURE);
       }
+      if (dup2(pipe_fds[i][1], STDOUT_FILENO) < 0) {
+        perror("dup2 failed");
+        close_all_pipes(pipe_fds, pcount);  // 추가된 부분
+        exit(EXIT_FAILURE);
+      }
+
+      close_all_pipes(pipe_fds, pcount);
 
       if (execvp(args[0], args) < 0) {
         error_print(args[0], PERROR);
         exit(EXIT_FAILURE);
       }
     } else {
+      if (sigprocmask(SIG_BLOCK, &blockset, &oldset) < 0) {
+        close_all_pipes(pipe_fds, pcount);
+        error_print("Failed to block signals", PERROR);
+        return -1;
+      }
+
       if (is_background) {
-        sigprocmask(SIG_BLOCK, &blockset, &oldset);
         bg_array[bg_array_idx].pid = pid;
         bg_array[bg_array_idx].pgid = pgid;
         bg_array_idx++;
-        sigprocmask(SIG_SETMASK, &oldset, NULL);
       }
+
+      if (sigprocmask(SIG_SETMASK, &oldset, NULL) < 0) {
+        close_all_pipes(pipe_fds, pcount);
+        error_print("Failed to restore signal mask", PERROR);
+        return -1;
+      }
+
       pids[i] = pgid;
     }
   }
@@ -278,32 +322,41 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
     signal(SIGINT, SIG_DFL);
     build_command_partial(oTokens, pipe_index[pcount - 1],
                           dynarray_get_length(oTokens), args);
-    dup2(pipe_fds[pcount - 1][0], STDIN_FILENO);
-    for (int j = 0; j < pcount; j++) {
-      close(pipe_fds[j][0]);
-      close(pipe_fds[j][1]);
+
+    if (dup2(pipe_fds[pcount - 1][0], STDIN_FILENO) < 0) {
+      perror("dup2 failed");
+      close_all_pipes(pipe_fds, pcount);  // 추가된 부분
+      exit(EXIT_FAILURE);
     }
+
+    close_all_pipes(pipe_fds, pcount);
 
     if (execvp(args[0], args) < 0) {
       error_print(args[0], PERROR);
       exit(EXIT_FAILURE);
     }
   } else {
+    if (sigprocmask(SIG_BLOCK, &blockset, &oldset) < 0) {
+      close_all_pipes(pipe_fds, pcount);
+      error_print("Failed to block signals", PERROR);
+      return -1;
+    }
+
     if (is_background) {
-      sigprocmask(SIG_BLOCK, &blockset, &oldset);
       bg_array[bg_array_idx].pid = pid;
       bg_array[bg_array_idx].pgid = pgid;
       bg_array_idx++;
-      sigprocmask(SIG_SETMASK, &oldset, NULL);
+    }
+
+    if (sigprocmask(SIG_SETMASK, &oldset, NULL) < 0) {
+      close_all_pipes(pipe_fds, pcount);
+      error_print("Failed to restore signal mask", PERROR);
+      return -1;
     }
     pids[pcount] = pgid;
   }
 
-  // parent
-  for (int i = 0; i < pcount; i++) {
-    close(pipe_fds[i][0]);
-    close(pipe_fds[i][1]);
-  }
+  close_all_pipes(pipe_fds, pcount);
 
   if (is_background) return pgid;
 

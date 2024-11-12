@@ -172,6 +172,10 @@ int main(int argc, char *argv[]) {
   // sigaction(SIGCHLD, &sa, NULL);
   /* Initialize Background process array and stack */
   bg_array = calloc(MAX_BG_PRO, sizeof(BgProcess));
+  if (bg_array == NULL) {
+    perror("calloc failed");
+    exit(EXIT_FAILURE);
+  }
 
   atexit(cleanup);
 
