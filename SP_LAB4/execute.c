@@ -134,6 +134,10 @@ void execute_builtin(DynArray_T oTokens, enum BuiltinType btype) {
 int fork_exec(DynArray_T oTokens, int is_background) {
   int status;
   char *args[1024];
+  sigset_t oldset, blockset;
+  sigemptyset(&blockset);
+  sigaddset(&blockset, SIGCHLD);
+
   pid_t pid = fork();
 
   if (pid < 0) {
@@ -151,9 +155,11 @@ int fork_exec(DynArray_T oTokens, int is_background) {
     }
   } else {
     if (is_background) {
+      sigprocmask(SIG_BLOCK, &blockset, &oldset);
       bg_array[bg_array_idx].pid = pid;
       bg_array[bg_array_idx].pgid = pid;
       bg_array_idx++;
+      sigprocmask(SIG_SETMASK, &oldset, NULL);
     } else {
       if (waitpid(pid, &status, 0) < 0) {
         error_print("Waitpid failed", PERROR);
@@ -174,6 +180,9 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
   int pipe_index[1024];
   char *args[1024];
   int status;
+  sigset_t oldset, blockset;
+  sigemptyset(&blockset);
+  sigaddset(&blockset, SIGCHLD);
   pid_t pgid, pid;
 
   for (int i = 0; i < pcount; i++) {
@@ -213,9 +222,11 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
       exit(EXIT_FAILURE);
     }
   } else {
+    sigprocmask(SIG_BLOCK, &blockset, &oldset);
     bg_array[bg_array_idx].pid = pgid;
     bg_array[bg_array_idx].pgid = pgid;
     bg_array_idx++;
+    sigprocmask(SIG_SETMASK, &oldset, NULL);
   }
 
   // between
@@ -242,9 +253,11 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
         exit(EXIT_FAILURE);
       }
     } else {
+      sigprocmask(SIG_BLOCK, &blockset, &oldset);
       bg_array[bg_array_idx].pid = pid;
       bg_array[bg_array_idx].pgid = pgid;
       bg_array_idx++;
+      sigprocmask(SIG_SETMASK, &oldset, NULL);
     }
   }
 
@@ -271,9 +284,11 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
       exit(EXIT_FAILURE);
     }
   } else {
+    sigprocmask(SIG_BLOCK, &blockset, &oldset);
     bg_array[bg_array_idx].pid = pid;
     bg_array[bg_array_idx].pgid = pgid;
     bg_array_idx++;
+    sigprocmask(SIG_SETMASK, &oldset, NULL);
   }
 
   // parent
