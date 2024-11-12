@@ -222,11 +222,13 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
       exit(EXIT_FAILURE);
     }
   } else {
-    sigprocmask(SIG_BLOCK, &blockset, &oldset);
-    bg_array[bg_array_idx].pid = pgid;
-    bg_array[bg_array_idx].pgid = pgid;
-    bg_array_idx++;
-    sigprocmask(SIG_SETMASK, &oldset, NULL);
+    if (is_background) {
+      sigprocmask(SIG_BLOCK, &blockset, &oldset);
+      bg_array[bg_array_idx].pid = pgid;
+      bg_array[bg_array_idx].pgid = pgid;
+      bg_array_idx++;
+      sigprocmask(SIG_SETMASK, &oldset, NULL);
+    }
   }
 
   // between
@@ -238,6 +240,7 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
     }
     if (pid == 0) {
       signal(SIGINT, SIG_DFL);
+      setpgid(0, pgid);
       build_command_partial(oTokens, pipe_index[i - 1] + 1, pipe_index[i],
                             args);
 
@@ -253,11 +256,13 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
         exit(EXIT_FAILURE);
       }
     } else {
-      sigprocmask(SIG_BLOCK, &blockset, &oldset);
-      bg_array[bg_array_idx].pid = pid;
-      bg_array[bg_array_idx].pgid = pgid;
-      bg_array_idx++;
-      sigprocmask(SIG_SETMASK, &oldset, NULL);
+      if (is_background) {
+        sigprocmask(SIG_BLOCK, &blockset, &oldset);
+        bg_array[bg_array_idx].pid = pid;
+        bg_array[bg_array_idx].pgid = pgid;
+        bg_array_idx++;
+        sigprocmask(SIG_SETMASK, &oldset, NULL);
+      }
     }
   }
 
@@ -271,6 +276,7 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
 
   if (pid == 0) {
     signal(SIGINT, SIG_DFL);
+    setpgid(0, pgid);
     build_command_partial(oTokens, pipe_index[pcount - 1],
                           dynarray_get_length(oTokens), args);
     dup2(pipe_fds[pcount - 1][0], STDIN_FILENO);
@@ -284,11 +290,13 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
       exit(EXIT_FAILURE);
     }
   } else {
-    sigprocmask(SIG_BLOCK, &blockset, &oldset);
-    bg_array[bg_array_idx].pid = pid;
-    bg_array[bg_array_idx].pgid = pgid;
-    bg_array_idx++;
-    sigprocmask(SIG_SETMASK, &oldset, NULL);
+    if (is_background) {
+      sigprocmask(SIG_BLOCK, &blockset, &oldset);
+      bg_array[bg_array_idx].pid = pid;
+      bg_array[bg_array_idx].pgid = pgid;
+      bg_array_idx++;
+      sigprocmask(SIG_SETMASK, &oldset, NULL);
+    }
   }
 
   // parent
@@ -299,7 +307,9 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
 
   if (is_background) return pgid;
 
-  while ((pid = waitpid(-1, &status, 0)) > 0) {
+  // 여기서, 정확히 파이프에 있는 child에 대해서만 기다리는게 맞다.
+  while ((pid = waitpid(-pgid, &status, 0)) > 0) {
+    printf("C\n");
   }
 
   if (pid == -1 && errno != ECHILD && errno != EINTR) {

@@ -23,6 +23,12 @@ static void sigzombie_handler(int signo) {
   pid_t pid;
   int stat;
 
+  // sigset_t oldset, blockset;
+  // sigemptyset(&blockset);
+  // sigaddset(&blockset, SIGCHLD);
+  // sigprocmask(SIG_BLOCK, &blockset, &oldset);  // SIGCHLD 블로킹
+  printf("HI\n");
+
   if (signo == SIGCHLD) {
     while ((pid = waitpid(-1, &stat, WNOHANG)) > 0) {
       int found_idx = -1;
@@ -35,8 +41,10 @@ static void sigzombie_handler(int signo) {
           break;
         }
       }
-
-      assert(found_idx != -1 && pgid != -1);
+      if (found_idx == -1) return;
+      printf("terminated pid: %d\n", pid);
+      printf("found_idx: %d\n", found_idx);
+      printf("pgid: %d\n", pgid);
 
       for (int i = found_idx; i < bg_array_idx - 1; i++) {
         bg_array[i] = bg_array[i + 1];
@@ -57,10 +65,12 @@ static void sigzombie_handler(int signo) {
     }
 
     if (pid < 0 && errno != ECHILD && errno != EINTR) {
+      printf("TLqkf\n");
       perror("waitpid");
     }
   }
-
+  printf("BYE\n");
+  // sigprocmask(SIG_SETMASK, &oldset, NULL);  // SIGCHLD 언블로킹
   return;
 }
 
@@ -94,6 +104,9 @@ static void shell_helper(const char *in_line) {
         btype = check_builtin(dynarray_get(oTokens, 0));
         if (btype == NORMAL) {
           is_background = check_bg(oTokens);
+
+          printf("is_background: %d\n", is_background);
+          printf("bg_array_idx: %d\n", bg_array_idx);
 
           pcount = count_pipe(oTokens);
 
@@ -165,7 +178,11 @@ static void shell_helper(const char *in_line) {
 int main(int argc, char *argv[]) {
   sigset_t sigset;
   char c_line[MAX_LINE_SIZE + 2];
-
+  struct sigaction sa;
+  sa.sa_handler = sigzombie_handler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+  sigaction(SIGCHLD, &sa, NULL);
   /* Initialize Background process array and stack */
   bg_array = calloc(MAX_BG_PRO, sizeof(BgProcess));
 
@@ -177,7 +194,7 @@ int main(int argc, char *argv[]) {
 
   sigemptyset(&sigset);
   sigaddset(&sigset, SIGINT);
-  sigaddset(&sigset, SIGCHLD);
+  // sigaddset(&sigset, SIGCHLD);
   sigaddset(&sigset, SIGQUIT);
   sigprocmask(SIG_UNBLOCK, &sigset, NULL);
 
