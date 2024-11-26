@@ -160,7 +160,9 @@ int fork_exec(DynArray_T oTokens, int is_background) {
   }
 
   if (pid == 0) {
-    signal(SIGINT, SIG_DFL);
+    if (!is_background) {
+      signal(SIGINT, SIG_DFL);
+    }
     build_command(oTokens, args);
 
     if (execvp(args[0], args) < 0) {
@@ -233,7 +235,9 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
   }
 
   if (pgid == 0) {
-    signal(SIGINT, SIG_DFL);
+    if (!is_background) {
+      signal(SIGINT, SIG_DFL);
+    }
     build_command_partial(oTokens, 0, pipe_index[0], args);
     if (dup2(pipe_fds[0][1], STDOUT_FILENO) < 0) {
       perror("dup2 failed");
@@ -266,7 +270,9 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
       return -1;
     }
     if (pid == 0) {
-      signal(SIGINT, SIG_DFL);
+      if (!is_background) {
+        signal(SIGINT, SIG_DFL);
+      }
       build_command_partial(oTokens, pipe_index[i - 1] + 1, pipe_index[i],
                             args);
 
@@ -319,7 +325,9 @@ int iter_pipe_fork_exec(int pcount, DynArray_T oTokens, int is_background) {
   }
 
   if (pid == 0) {
-    signal(SIGINT, SIG_DFL);
+    if (!is_background) {
+      signal(SIGINT, SIG_DFL);
+    }
     build_command_partial(oTokens, pipe_index[pcount - 1],
                           dynarray_get_length(oTokens), args);
 

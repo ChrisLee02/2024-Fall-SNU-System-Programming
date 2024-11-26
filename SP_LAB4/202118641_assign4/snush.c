@@ -14,10 +14,49 @@
 volatile int bg_array_idx;
 BgProcess *bg_array;
 int bg_cnt;
+int pipe_fd[2];
 
 /*---------------------------------------------------------------------------*/
-void cleanup() { free(bg_array); }
+void cleanup() {
+  free(bg_array);
+  close(pipe_fd[0]);
+  close(pipe_fd[1]);
+}
 /*---------------------------------------------------------------------------*/
+void check_bg_status() {
+  char buffer[64];
+  ssize_t bytes_read;
+  while ((bytes_read = read(pipe_fd[0], buffer, sizeof(buffer))) > 0) {
+    if (write(STDOUT_FILENO, buffer, bytes_read) < 0) {
+      const char *error_msg = "Error writing to stdout\n";
+      if (write(STDERR_FILENO, error_msg, strlen(error_msg)) < 0) {
+      }
+    }
+  }
+
+  if (bytes_read == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+    const char *error_msg = "Error reading from pipe\n";
+    if (write(STDERR_FILENO, error_msg, strlen(error_msg)) < 0) {
+    }
+  }
+}
+
+/*---------------------------------------------------------------------------*/
+static void int_to_str(int num, char *str, int *len) {
+  char temp[16];
+  int index = 0;
+
+  do {
+    temp[index++] = '0' + (num % 10);
+    num /= 10;
+  } while (num > 0);
+
+  for (int i = index - 1; i >= 0; i--) {
+    str[(*len)++] = temp[i];
+  }
+}
+/*---------------------------------------------------------------------------*/
+
 /* Whenever a child process terminates, this handler handles all zombies. */
 static void sigzombie_handler(int signo) {
   pid_t pid;
@@ -53,7 +92,23 @@ static void sigzombie_handler(int signo) {
       }
 
       if (!pgid_exists) {
-        printf("[%d] Done background process group\n", pgid);
+        int len = 0;
+        char buffer[64];
+
+        buffer[len++] = '[';
+        int_to_str(pgid, buffer, &len);
+        buffer[len++] = ']';
+        buffer[len++] = ' ';
+        const char *msg = "Done background process group\n";
+        for (int i = 0; msg[i] != '\0'; i++) {
+          buffer[len++] = msg[i];
+        }
+
+        if (write(pipe_fd[1], buffer, len) < 0) {
+          const char *error_msg = "Error writing to pipe\n";
+          if (write(STDERR_FILENO, error_msg, strlen(error_msg)) < 0) {
+          }
+        }
       }
     }
 
@@ -61,9 +116,9 @@ static void sigzombie_handler(int signo) {
       perror("waitpid");
     }
   }
+
   return;
 }
-
 /*---------------------------------------------------------------------------*/
 static void shell_helper(const char *in_line) {
   DynArray_T oTokens;
@@ -97,12 +152,14 @@ static void shell_helper(const char *in_line) {
 
           pcount = count_pipe(oTokens);
 
-          if (is_background && bg_array_idx + pcount + 1 > MAX_BG_PRO) {
-            error_print(
-                "Program exceeds the maximum number of the "
-                "background processes\n",
-                FPRINTF);
-            exit(EXIT_FAILURE);
+          if (is_background) {
+            if (bg_array_idx + pcount + 1 > MAX_BG_PRO) {
+              printf(
+                  "Error: Total background processes "
+                  "exceed the limit (%d).\n",
+                  MAX_BG_PRO);
+              return;
+            }
           }
 
           if (pcount > 0) {
@@ -113,7 +170,7 @@ static void shell_helper(const char *in_line) {
 
           if (ret_pgid > 0) {
             if (is_background == 1)
-              printf("[%d] Background process running\n", ret_pgid);
+              printf("[%d] Background process group running\n", ret_pgid);
           } else {
             printf(
                 "Invalid return value "
@@ -165,19 +222,31 @@ static void shell_helper(const char *in_line) {
 int main(int argc, char *argv[]) {
   sigset_t sigset;
   char c_line[MAX_LINE_SIZE + 2];
-  // struct sigaction sa;
-  // sa.sa_handler = sigzombie_handler;
-  // sigemptyset(&sa.sa_mask);
-  // sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
-  // sigaction(SIGCHLD, &sa, NULL);
-  /* Initialize Background process array and stack */
-  bg_array = calloc(MAX_BG_PRO, sizeof(BgProcess));
 
   atexit(cleanup);
 
-  /* Initialize variables for background/foreground processes */
+  /* Initialize variables for background processes */
+  if (pipe(pipe_fd) == -1) {
+    perror("pipe failed");
+    exit(EXIT_FAILURE);
+  }
+
+  int flags = fcntl(pipe_fd[0], F_GETFL);
+  if (flags == -1) {
+    perror("fcntl failed");
+    exit(EXIT_FAILURE);
+  }
+  if (fcntl(pipe_fd[0], F_SETFL, flags | O_NONBLOCK) == -1) {
+    perror("fcntl failed");
+    exit(EXIT_FAILURE);
+  }
+
   bg_array_idx = 0;
-  bg_cnt = 0;
+  bg_array = calloc(MAX_BG_PRO, sizeof(BgProcess));
+  if (bg_array == NULL) {
+    perror("calloc failed");
+    exit(EXIT_FAILURE);
+  }
 
   sigemptyset(&sigset);
   sigaddset(&sigset, SIGINT);
@@ -189,12 +258,15 @@ int main(int argc, char *argv[]) {
   signal(SIGINT, SIG_IGN);
   signal(SIGCHLD, sigzombie_handler);
   signal(SIGQUIT, SIG_IGN);
+  signal(SIGTSTP, SIG_IGN);
 
   error_print(argv[0], SETUP);
 
   while (1) {
+    check_bg_status();
     fprintf(stdout, "%% ");
     fflush(stdout);
+
     if (fgets(c_line, MAX_LINE_SIZE, stdin) == NULL) {
       printf("\n");
       exit(EXIT_SUCCESS);

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------*/
-/* snush.h */
+/* snush.h                                                                   */
 /* Author: Jongki Park, Kyoungsoo Park                                       */
 /*---------------------------------------------------------------------------*/
 
@@ -24,12 +24,25 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MAX_BG_PRO 5
-#define MAX_FG_PRO 5
+#define MAX_BG_PRO 16
+#define MAX_FG_PRO 16
 
 typedef struct {
   pid_t pid;
   pid_t pgid;
 } BgProcess;
+
+/*
+        //
+        // TODO-start: data structures in snush.h
+        //
+
+        You can add your own data structures to manage the background processes
+        You can also add macros to manage background processes
+
+        //
+        // TODO-end: data structures in snush.h
+        //
+*/
 
 #endif /* _SNUSH_H_ */

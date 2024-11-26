@@ -11,52 +11,50 @@
 #include "token.h"
 #include "util.h"
 
-volatile int bg_array_idx;
-BgProcess *bg_array;
-int bg_cnt;
-int pipe_fd[2];
+/*
+        //
+        // TODO-start: global variables in snush.c
+        //
+
+        You may add global variables for handling background processes
+
+        //
+        // TODO-end: global variables in snush.c
+        //
+*/
+int bg_array_idx;
 
 /*---------------------------------------------------------------------------*/
 void cleanup() {
-  free(bg_array);
-  close(pipe_fd[0]);
-  close(pipe_fd[1]);
+  /*
+      //
+      // TODO-start: cleanup() in snush.c
+      //
+
+      You need to free dynamically allocated data structures
+
+      //
+      // TODO-end: cleanup() in snush.c
+      //
+  */
 }
 /*---------------------------------------------------------------------------*/
 void check_bg_status() {
-  char buffer[64];
-  ssize_t bytes_read;
-  while ((bytes_read = read(pipe_fd[0], buffer, sizeof(buffer))) > 0) {
-    if (write(STDOUT_FILENO, buffer, bytes_read) < 0) {
-      const char *error_msg = "Error writing to stdout\n";
-      if (write(STDERR_FILENO, error_msg, strlen(error_msg)) < 0) {
-      }
-    }
-  }
+  /*
+      //
+      // TODO-start: check_bg_status() in snush.c
+      //
 
-  if (bytes_read == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
-    const char *error_msg = "Error reading from pipe\n";
-    if (write(STDERR_FILENO, error_msg, strlen(error_msg)) < 0) {
-    }
-  }
-}
+      The message "background process done" is not printed by the
+     sigzombie_handler as soon as it is finished, but is printed here if there
+     is any input at the command prompt.
 
-/*---------------------------------------------------------------------------*/
-static void int_to_str(int num, char *str, int *len) {
-  char temp[16];
-  int index = 0;
-
-  do {
-    temp[index++] = '0' + (num % 10);
-    num /= 10;
-  } while (num > 0);
-
-  for (int i = index - 1; i >= 0; i--) {
-    str[(*len)++] = temp[i];
-  }
+      //
+      // TODO-end: check_bg_status() in snush.c
+      //
+  */
 }
 /*---------------------------------------------------------------------------*/
-
 /* Whenever a child process terminates, this handler handles all zombies. */
 static void sigzombie_handler(int signo) {
   pid_t pid;
@@ -64,52 +62,13 @@ static void sigzombie_handler(int signo) {
 
   if (signo == SIGCHLD) {
     while ((pid = waitpid(-1, &stat, WNOHANG)) > 0) {
-      int found_idx = -1;
-      pid_t pgid = -1;
+      //
+      // TODO-start: sigzombie_handler() in snush.c start
+      //
 
-      for (int i = 0; i < bg_array_idx; i++) {
-        if (bg_array[i].pid == pid) {
-          pgid = bg_array[i].pgid;
-          found_idx = i;
-          break;
-        }
-      }
-
-      // if not bg process, return
-      if (found_idx == -1) continue;
-
-      for (int i = found_idx; i < bg_array_idx - 1; i++) {
-        bg_array[i] = bg_array[i + 1];
-      }
-      bg_array_idx--;
-
-      int pgid_exists = 0;
-      for (int i = 0; i < bg_array_idx; i++) {
-        if (bg_array[i].pgid == pgid) {
-          pgid_exists = 1;
-          break;
-        }
-      }
-
-      if (!pgid_exists) {
-        int len = 0;
-        char buffer[64];
-
-        buffer[len++] = '[';
-        int_to_str(pgid, buffer, &len);
-        buffer[len++] = ']';
-        buffer[len++] = ' ';
-        const char *msg = "Done background process group\n";
-        for (int i = 0; msg[i] != '\0'; i++) {
-          buffer[len++] = msg[i];
-        }
-
-        if (write(pipe_fd[1], buffer, len) < 0) {
-          const char *error_msg = "Error writing to pipe\n";
-          if (write(STDERR_FILENO, error_msg, strlen(error_msg)) < 0) {
-          }
-        }
-      }
+      //
+      // TODO-end: sigzombie_handler() in snush.c end
+      //
     }
 
     if (pid < 0 && errno != ECHILD && errno != EINTR) {
@@ -226,27 +185,21 @@ int main(int argc, char *argv[]) {
   atexit(cleanup);
 
   /* Initialize variables for background processes */
-  if (pipe(pipe_fd) == -1) {
-    perror("pipe failed");
-    exit(EXIT_FAILURE);
-  }
-
-  int flags = fcntl(pipe_fd[0], F_GETFL);
-  if (flags == -1) {
-    perror("fcntl failed");
-    exit(EXIT_FAILURE);
-  }
-  if (fcntl(pipe_fd[0], F_SETFL, flags | O_NONBLOCK) == -1) {
-    perror("fcntl failed");
-    exit(EXIT_FAILURE);
-  }
-
   bg_array_idx = 0;
-  bg_array = calloc(MAX_BG_PRO, sizeof(BgProcess));
-  if (bg_array == NULL) {
-    perror("calloc failed");
-    exit(EXIT_FAILURE);
-  }
+
+  /*
+      //
+      // TODO-start: Initializing in snush.c
+      //
+
+       You should initialize or allocate your own global variables
+      for handling background processes
+
+      //
+      // TODO-end: Initializing in snush.c
+      //
+
+  */
 
   sigemptyset(&sigset);
   sigaddset(&sigset, SIGINT);
