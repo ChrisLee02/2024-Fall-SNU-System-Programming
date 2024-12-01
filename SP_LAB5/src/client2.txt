@@ -1,0 +1,2 @@
+DELETE bye
+READ hello
