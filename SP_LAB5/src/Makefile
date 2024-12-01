@@ -4,6 +4,7 @@ CC = gcc800
 # Compiler flags
 CFLAGS = -g -O0 -pthread -D_POSIX_C_SOURCE=200809L
 
+# Uncomment for manual debugging
 # CFLAGS += -DDEBUG
 # CFLAGS += -DTRACE
 
@@ -23,6 +24,10 @@ CLIENT_TARGET = client
 
 # Default target: build both server and client
 all: $(SERVER_TARGET) $(CLIENT_TARGET)
+
+# Debug target
+debug: CFLAGS += -DDEBUG -DTRACE
+debug: clean all
 
 # Build the server executable
 $(SERVER_TARGET): $(SERVER_OBJ)
@@ -58,4 +63,4 @@ clean:
 	@if ls *_assign5 >/dev/null 2>&1; then rm -rf *_assign5; fi
 	@if ls *.tar.gz >/dev/null 2>&1; then rm -f *.tar.gz; fi
 
-.PHONY: all clean submit
+.PHONY: all clean submit debug

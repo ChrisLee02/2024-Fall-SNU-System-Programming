@@ -127,6 +127,7 @@ int rwlock_write_lock(rwlock_t *rw) {
   }
 
   rw->writer_ring[rw->writer_ring_tail] = pthread_self();
+  rw->writer_ring_tail = (rw->writer_ring_tail + 1) % WRITER_RING_SIZE;
 
   while (rw->write_count > 0 || rw->read_count > 0 ||
          rw->writer_ring[rw->writer_ring_head] != pthread_self()) {
@@ -136,7 +137,6 @@ int rwlock_write_lock(rwlock_t *rw) {
     }
   }
   rw->write_count++;
-  rw->writer_ring_tail = (rw->writer_ring_tail + 1) % WRITER_RING_SIZE;
   if (pthread_mutex_unlock(&rw->lock) != 0) {
     return -1;
   }

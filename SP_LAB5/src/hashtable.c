@@ -186,7 +186,6 @@ int list_delete(node_t **head, const char *key) {
 /*---------------------------------------------------------------------------*/
 int hash_insert(hashtable_t *table, const char *key, const char *value) {
   TRACE_PRINT();
-  node_t *node;
   rwlock_t *lock;
   unsigned int index = hash(key, table->hash_size);
 
@@ -215,7 +214,6 @@ int hash_insert(hashtable_t *table, const char *key, const char *value) {
     return -1;
   }
   /*---------------------------------------------------------------------------*/
-
   return result;
 }
 /*---------------------------------------------------------------------------*/
@@ -250,14 +248,16 @@ int hash_search(hashtable_t *table, const char *key, const char **value) {
   }
 
   // for thread-safe return, dup str
-  *value = strdup(node->value);
+  /* *value = strdup(node->value);
   if (*value == NULL) {
     rwlock_read_unlock(lock);
     return -1;
-  }
+  } */
+
+  *value = node->value;
 
   if (rwlock_read_unlock(lock) == -1) {
-    free(*value);
+    // free((char *)*value);
     return -1;
   }
   /*---------------------------------------------------------------------------*/
@@ -297,7 +297,6 @@ int hash_update(hashtable_t *table, const char *key, const char *value) {
 /*---------------------------------------------------------------------------*/
 int hash_delete(hashtable_t *table, const char *key) {
   TRACE_PRINT();
-  node_t *node, *prev;
   rwlock_t *lock;
   unsigned int index = hash(key, table->hash_size);
 
