@@ -106,28 +106,17 @@ void *handle_client(void *arg) {
       if (total_read == 1 && buffer[0] == '\n') {
         break;
       }
+      // printf("\nrequest: %s\n", buffer);
 
       const char *response = skvs_serve(ctx, buffer, total_read);
+      snprintf(buffer, sizeof(buffer), "%s\n", response);
+      // printf("response: %s\n", response);
 
       ssize_t total_written = 0, bytes_written;
-      size_t response_length = strlen(response);
-      while (total_written < response_length) {
-        bytes_written = write(clientfd, response + total_written,
-                              response_length - total_written);
-        if (bytes_written > 0) {
-          total_written += bytes_written;
-        } else if (bytes_written == -1 &&
-                   (errno == EAGAIN || errno == EWOULDBLOCK)) {
-          usleep(1000);
-          continue;
-        } else {
-          perror("Write error");
-          break;
-        }
-      }
-      total_written = 0;
-      while (total_written < 1) {
-        bytes_written = write(clientfd, "\n", 1);
+      size_t buffer_length = strlen(buffer);
+      while (total_written < buffer_length) {
+        bytes_written = write(clientfd, buffer + total_written,
+                              buffer_length - total_written);
         if (bytes_written > 0) {
           total_written += bytes_written;
         } else if (bytes_written == -1 &&

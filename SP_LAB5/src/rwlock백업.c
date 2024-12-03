@@ -69,13 +69,13 @@ int rwlock_read_lock(rwlock_t *rw) {
   if (pthread_mutex_lock(&rw->lock) != 0) {
     return -1;
   }
-  rw->read_count++;
   while (rw->write_count > 0) {
     if (pthread_cond_wait(&rw->readers, &rw->lock) != 0) {
       pthread_mutex_unlock(&rw->lock);
       return -1;
     }
   }
+  rw->read_count++;
   if (pthread_mutex_unlock(&rw->lock) != 0) {
     return -1;
   }
@@ -159,16 +159,14 @@ int rwlock_write_unlock(rwlock_t *rw) {
   }
   rw->write_count--;
   if (rw->write_count == 0) {
-    if (rw->read_count == 0) {
-      if (pthread_cond_signal(&rw->writers) != 0) {
-        pthread_mutex_unlock(&rw->lock);
-        return -1;
-      }
-    } else {
-      if (pthread_cond_broadcast(&rw->readers) != 0) {
-        pthread_mutex_unlock(&rw->lock);
-        return -1;
-      }
+    if (pthread_cond_broadcast(&rw->readers) != 0) {
+      pthread_mutex_unlock(&rw->lock);
+      return -1;
+    }
+
+    if (pthread_cond_signal(&rw->writers) != 0) {
+      pthread_mutex_unlock(&rw->lock);
+      return -1;
     }
   }
   if (pthread_mutex_unlock(&rw->lock) != 0) {

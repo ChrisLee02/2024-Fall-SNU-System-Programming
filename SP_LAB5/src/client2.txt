@@ -1,2 +1,0 @@
-DELETE bye
-READ hello

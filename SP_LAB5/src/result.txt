@@ -1,6 +1,4 @@
-CREATE OK
-NOT FOUND
-UPDATE OK
-snu
-snu
-DELETE OK
+COLLISION
+world
+world
+world

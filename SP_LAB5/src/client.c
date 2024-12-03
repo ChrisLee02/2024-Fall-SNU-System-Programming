@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
   }
   if (ai_it == NULL) {
     if (ai_it == NULL) {
-      // fprintf(stderr, "Could not connect to %s:%d\n", ip, port);
+      fprintf(stderr, "Could not connect to %s:%d\n", ip, port);
       freeaddrinfo(ai);
       close(socketfd);
       return -1;
@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
       return -1;
     }
     if (res == 0) {
-      // printf("Connection closed by server\n");
+      printf("Connection closed by server\n");
       close(socketfd);
       return 0;
     }
