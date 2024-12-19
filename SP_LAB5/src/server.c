@@ -203,6 +203,7 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
+  // todo: 여기 getaddrinfo를 쓰는게좋을듯
   listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (listen_fd < 0) {
     perror("socket()");
